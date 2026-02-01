@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}All Events{% endblock %}
+{% block content %}
+<h1 class="mb-4">Events</h1>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+    {% for path, ev in events.items() if not ev.hidden %}
+    <div class="col">
+        <div class="card h-100">
+            <a href="{{ url_for('event_page', event_path=path) }}">
+                <img src="{{ url_for('event_thumb', event_path=path) }}" class="card-img-top" alt="Event Thumbnail"
+                    loading="lazy">
+            </a>
+
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{{ url_for('event_page', event_path=path) }}" class="text-decoration-none text-dark">{{
+                        ev.name }}</a>
+                </h5>
+                <p class="card-text">{{ ev.description }}</p>
+            </div>
+            <div class="card-footer bg-white border-top-0">
+                <small class="text-muted">{{ ev.date }}</small>
+                {% if ev.password %}
+                <span class="float-end badge bg-secondary">Locked</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p>No public events available.</p>
+    {% endfor %}
+</div>
+{% endblock %}

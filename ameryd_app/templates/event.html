@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>{{ event.name }}</h1>
+    <a href="{{ url_for('list_events') }}" class="btn btn-outline-secondary">&larr; Back</a>
+</div>
+<p class="text-muted"><em>{{ event.date }}</em> – {{ event.description }}</p>
+
+{% if locked %}
+<!-- Show password form -->
+<div class="alert alert-warning">This gallery is protected. Enter the key to unlock.</div>
+<form method="get" class="mb-3">
+    <div class="mb-2" style="max-width: 300px;">
+        <input type="password" name="key" class="form-control" placeholder="Enter key" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Unlock</button>
+</form>
+{% else %}
+<!-- Show media gallery -->
+<!-- Show media gallery -->
+<div class="row g-2" id="gallery-grid">
+    {% for media in media_list %}
+    <div class="col-6 col-md-4 col-lg-3 col-xl-2 mb-2" data-name="{{ media.filename }}">
+        <a href="{{ url_for(media.thumb_route, event_path=event_path, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', event_path=event_path, filename=media.filename, key=key) }}"
+            class="gallery-item-link" target="_blank">
+            <div class="filename-overlay">{{ media.filename }}</div>
+            <!-- Note: The app.py logic returns thumb_route as 'thumb_file' or 'global_thumb'. -->
+            {% if media.thumb_route == 'thumb_file' %}
+            <img src="{{ url_for('thumb_file', event_path=event_path, filename=media.thumb_filename, key=key) }}"
+                class="img-fluid rounded" alt="Media" loading="lazy">
+            {% else %}
+            <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
+                alt="Generic Media" loading="lazy">
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+    {% if media_list|length == 0 %}
+    <div class="col-12">
+        <p class="alert alert-info">No media files found for this event.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Loader & Sentinel -->
+<div id="loading" class="text-center py-4" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+<div id="scroll-sentinel"></div>
+
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let page = 2; // Start from page 2 since page 1 is server-rendered
+        let isLoading = false;
+        let hasMore = true;
+        const sentinel = document.getElementById('scroll-sentinel');
+        const loader = document.getElementById('loading');
+        const grid = document.getElementById('gallery-grid');
+        const eventPath = "{{ event_path }}";
+        const key = "{{ key }}";
+
+        // Helper to construct URLs (simple version)
+        function getMediaUrl(filename) {
+            // We use the media_file route
+            return `/e/${eventPath}/m/${filename}?key=${key}`;
+        }
+        function getThumbUrl(item) {
+            if (item.thumb_route === 'thumb_file') {
+                return `/e/${eventPath}/t/${item.thumb_filename}?key=${key}`;
+            } else {
+                return `/thumbs/${item.thumb_filename}`;
+            }
+        }
+
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore && !isLoading) {
+                loadMore();
+            }
+        });
+
+        if (sentinel) {
+            observer.observe(sentinel);
+        }
+
+        function loadMore() {
+            isLoading = true;
+            loader.style.display = 'block';
+
+            fetch(`/api/e/${eventPath}?page=${page}&key=${key}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.media && data.media.length > 0) {
+                        const newElements = [];
+
+                        data.media.forEach(item => {
+                            const col = document.createElement('div');
+                            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 mb-2';
+                            col.dataset.name = item.filename; // Store name for sorting
+
+                            const link = document.createElement('a');
+                            link.href = getMediaUrl(item.filename);
+                            link.target = '_blank';
+                            link.className = 'gallery-item-link';
+
+                            const overlay = document.createElement('div');
+                            overlay.className = 'filename-overlay';
+                            overlay.textContent = item.filename;
+
+                            const img = document.createElement('img');
+                            img.src = getThumbUrl(item);
+                            img.className = 'img-fluid rounded';
+                            img.alt = 'Media';
+                            img.loading = 'lazy';
+
+                            link.appendChild(overlay);
+                            link.appendChild(img);
+                            col.appendChild(link);
+
+                            grid.appendChild(col);
+                            newElements.push(col);
+                        });
+
+                        // 1. Column Count (Dimensions) - Update classes for new items
+                        const colSelect = document.getElementById('col-count-select');
+                        if (colSelect) {
+                            // This updates the classes (width) but DOES NOT re-order items
+                            colSelect.dispatchEvent(new Event('change'));
+                        }
+
+                        // 2. Masonry Layout - Register new items without re-sorting
+                        if (window.Masonry) {
+                            var msnry = Masonry.data(grid);
+                            if (msnry) {
+                                msnry.appended(newElements);
+
+                                // Layout again as images load to prevent overlaps
+                                if (window.imagesLoaded) {
+                                    imagesLoaded(newElements).on('progress', function () {
+                                        msnry.layout();
+                                    });
+                                } else {
+                                    // Fallback if imagesLoaded is missing (rare)
+                                    msnry.layout();
+                                }
+                            }
+                        }
+
+                        if (data.next_page) {
+                            page = data.next_page;
+                        } else {
+                            hasMore = false;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                })
+                .catch(err => console.error('Error loading more items:', err))
+                .finally(() => {
+                    isLoading = false;
+                    loader.style.display = 'none';
+                    if (!hasMore) {
+                        observer.unobserve(sentinel);
+                    }
+                });
+        }
+    });
+</script>
+
+{% endblock %}
