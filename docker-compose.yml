@@ -1,0 +1,12 @@
+services:
+  ameryd:
+    build: .
+    container_name: ameryd
+    restart: always
+    ports:
+      - "2021:2021"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=2021
+      - FLASK_ENV=production
