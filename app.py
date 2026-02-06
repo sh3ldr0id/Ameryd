@@ -289,9 +289,14 @@ def api_create_event():
         return jsonify({'error': 'Event description is required'}), 400
     
     # Generate event path (URL slug)
-    event_path = slugify(name)
+    custom_id = request.form.get('event_id', '').strip()
+    if custom_id:
+        event_path = slugify(custom_id)
+    else:
+        event_path = slugify(name)
+
     if not event_path:
-        return jsonify({'error': 'Invalid event name'}), 400
+        return jsonify({'error': 'Invalid event name or ID'}), 400
     
     # Generate folder name if not provided
     if not folder:

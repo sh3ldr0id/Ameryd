@@ -23,6 +23,15 @@
                         <div class="form-text">Select the event date (will be saved in dd-mm-yyyy format).</div>
                     </div>
 
+                    {% if not event %}
+                    <div class="mb-3">
+                        <label for="event_id" class="form-label">Event ID (URL Path)</label>
+                        <input type="text" class="form-control" id="event_id" name="event_id"
+                            placeholder="Auto-generated if empty" required>
+                        <div class="form-text">Optional: Customize the URL (e.g., /e/my-custom-path).</div>
+                    </div>
+                    {% endif %}
+
                     <div class="mb-3">
                         <label for="description" class="form-label">Description <span
                                 class="text-danger">*</span></label>
