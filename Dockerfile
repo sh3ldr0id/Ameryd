@@ -4,10 +4,11 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies if any are needed (e.g., for Pillow)
-# Pillow on slim images might need some libs, but often the wheels are fine.
-# If you run into issues, uncomment the next line:
-# RUN apt-get update && apt-get install -y libopenjp2-7 libtiff6 && rm -rf /var/lib/apt/lists/*
+# Install system dependencies for OpenCV and Pillow
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file into the container at /app
 COPY requirements.txt .
