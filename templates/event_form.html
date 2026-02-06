@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Event' if event else 'Create Event' }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ 'Edit Event' if event else 'Create Event' }}</h1>
+            <a href="{{ url_for('list_events') }}" class="btn btn-outline-secondary">&larr; Back</a>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="event-form">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Event Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name"
+                            value="{{ event.name if event else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="date" name="date"
+                            value="{{ event.date if event else '' }}" placeholder="e.g., January 2024" required>
+                        <div class="form-text">Enter a descriptive date (e.g., "Summer 2024", "Dec 25, 2023")</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description <span
+                                class="text-danger">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                            required>{{ event.description if event else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password (Optional)</label>
+                        <input type="text" class="form-control" id="password" name="password"
+                            value="{{ event.password if event and event.password else '' }}"
+                            placeholder="Leave empty for public access">
+                        <div class="form-text">Set a password to restrict access to this event</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="thumbnail" class="form-label">Event Thumbnail (Optional)</label>
+                        <input type="file" class="form-control" id="thumbnail" name="thumbnail" accept="image/*">
+                        <div class="form-text">Upload an image to use as the gallery cover. Will be converted to WebP.
+                        </div>
+                    </div>
+
+                    {% if not event %}
+                    <div class="mb-3">
+                        <label for="folder" class="form-label">Folder Name (Optional)</label>
+                        <input type="text" class="form-control" id="folder" name="folder"
+                            placeholder="Auto-generated from event name">
+                        <div class="form-text">Leave empty to auto-generate from event name</div>
+                    </div>
+                    {% endif %}
+
+                    <div class="alert alert-danger d-none" id="error-message"></div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                            {{ 'Update Event' if event else 'Create Event' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('event-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-message');
+    const isEdit = {{ 'true' if event else 'false' }};
+    const eventPath = "{{ event_path if event else '' }}";
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.textContent = isEdit ? 'Updating...' : 'Creating...';
+        errorMsg.classList.add('d-none');
+
+        const formData = new FormData(form);
+        const url = isEdit ? `/api/events/${eventPath}/update` : '/api/events/create';
+
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect to event page or events list
+                    if (isEdit) {
+                        window.location.href = `/e/${eventPath}`;
+                    } else {
+                        window.location.href = `/e/${data.event_path}`;
+                    }
+                } else {
+                    errorMsg.textContent = data.error || 'An error occurred';
+                    errorMsg.classList.remove('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
+                }
+            })
+            .catch(err => {
+                errorMsg.textContent = 'Network error: ' + err.message;
+                errorMsg.classList.remove('d-none');
+                submitBtn.disabled = false;
+                submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
+            });
+    });
+</script>
+{% endblock %}

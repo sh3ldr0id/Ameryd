@@ -1,16 +1,11 @@
 import os
 import json
-from PIL import Image
-import cv2
+from utils import generate_thumb_for_any, IMAGE_EXTS, VIDEO_EXTS
 
 # Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 EVENTS_FILE = os.path.join(DATA_DIR, 'events.json')
-
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm', '.mkv', '.3gp'}
-THUMB_SIZE = (400, 400)
 
 def load_events():
     if not os.path.exists(EVENTS_FILE):
@@ -29,61 +24,6 @@ def save_events(events):
         print("Updated events.json")
     except Exception as e:
         print(f"Error saving events.json: {e}")
-
-def generate_thumbnail(media_path, thumb_path):
-    try:
-        with Image.open(media_path) as img:
-            # Convert to RGB if necessary (e.g. for PNGs with alpha)
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            # Create thumbnail
-            img.thumbnail(THUMB_SIZE)
-            
-            # Save as webp
-            img.save(thumb_path, "WEBP", quality=80)
-            print(f"Generated thumbnail: {thumb_path}")
-            return True
-    except Exception as e:
-        print(f"Failed to generate thumbnail for {media_path}: {e}")
-        return False
-
-def generate_video_thumbnail(video_path, thumb_path):
-    try:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"Error: Could not open video {video_path}")
-            return False
-            
-        # Try to grab frame at 1 second mark
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps > 0:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps))
-            
-        ret, frame = cap.read()
-        if not ret:
-            # Fallback to first frame
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, frame = cap.read()
-            
-        cap.release()
-        
-        if ret:
-            # OpenCV uses BGR, Pillow uses RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame_rgb)
-            
-            # Standard Pillow resize
-            img.thumbnail(THUMB_SIZE)
-            img.save(thumb_path, "WEBP", quality=80)
-            print(f"Generated video thumbnail: {thumb_path}")
-            return True
-        else:
-            print(f"Failed to extract frame from {video_path}")
-            return False
-    except Exception as e:
-        print(f"Exception generating video thumbnail for {video_path}: {e}")
-        return False
 
 def sync_events():
     print(f"Scanning data directory: {DATA_DIR}")
@@ -159,20 +99,30 @@ def sync_events():
         # 3a. Generate missing thumbnails
         for fname in media_files:
             base, ext = os.path.splitext(fname)
-            ext_lower = ext.lower()
             thumb_fname = base + '.webp'
             thumb_path = os.path.join(thumb_dir, thumb_fname)
             media_path = os.path.join(media_dir, fname)
             
-            if os.path.exists(thumb_path):
-                continue
+            if not os.path.exists(thumb_path):
+                print(f"Generating missing thumbnail for {fname} in {folder_name}...")
+                generate_thumb_for_any(media_path, thumb_path)
+        
+        # 3b. Cleanup orphaned thumbnails
+        if os.path.isdir(thumb_dir):
+            for thumb_fname in os.listdir(thumb_dir):
+                base, ext = os.path.splitext(thumb_fname)
+                if ext.lower() == '.webp':
+                    if base not in valid_media_bases:
+                        print(f"Removing orphaned thumbnail: {thumb_fname} in {folder_name}")
+                        try:
+                            os.remove(os.path.join(thumb_dir, thumb_fname))
+                        except OSError as e:
+                            print(f"Error removing {thumb_fname}: {e}")
 
-            if ext_lower in IMAGE_EXTS:
-                print(f"Missing thumbnail for image {fname} in {folder_name}...")
-                generate_thumbnail(media_path, thumb_path)
-            elif ext_lower in VIDEO_EXTS:
-                print(f"Missing thumbnail for video {fname} in {folder_name}...")
-                generate_video_thumbnail(media_path, thumb_path)
+    print("Sync complete.")
+
+if __name__ == "__main__":
+    sync_events()
         
         # 3b. Cleanup orphaned thumbnails
         if os.path.isdir(thumb_dir):

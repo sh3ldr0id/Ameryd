@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}All Events{% endblock %}
 {% block content %}
-<h1 class="mb-4">Events</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Events</h1>
+    {% if session.get('is_admin') %}
+    <a href="{{ url_for('create_event_page') }}" class="btn btn-primary">+ Create Event</a>
+    {% endif %}
+</div>
 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
     {% for path, ev in events.items() if not ev.hidden %}
     <div class="col">

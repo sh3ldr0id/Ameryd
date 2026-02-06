@@ -1,9 +1,19 @@
 {% extends "base.html" %}
 {% block title %}{{ event.name }}{% endblock %}
+{% block og_title %}{{ event.name }}{% endblock %}
+{% block og_description %}{{ event.description }}{% endblock %}
+{% block og_image %}{{ url_for('event_thumb', event_path=event_path, _external=True) }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1>{{ event.name }}</h1>
-    <a href="{{ url_for('list_events') }}" class="btn btn-outline-secondary">&larr; Back</a>
+    <div class="d-flex gap-2">
+        {% if session.get('is_admin') %}
+        <a href="{{ url_for('upload_page', event_path=event_path) }}" class="btn btn-primary">Add Media</a>
+        <a href="{{ url_for('edit_event_page', event_path=event_path) }}" class="btn btn-outline-primary">Edit Event</a>
+        <button class="btn btn-outline-danger" onclick="deleteEvent()">Delete Event</button>
+        {% endif %}
+        <a href="{{ url_for('list_events') }}" class="btn btn-outline-secondary">&larr; Back</a>
+    </div>
 </div>
 <p class="text-muted"><em>{{ event.date }}</em> – {{ event.description }}</p>
 
@@ -18,29 +28,29 @@
 </form>
 {% else %}
 <!-- Show media gallery -->
-<!-- Show media gallery -->
-<div class="row g-2" id="gallery-grid">
+<div id="gallery-grid" class="row g-2" data-is-admin="{{ 'true' if session.get('is_admin') else 'false' }}">
     {% for media in media_list %}
-    <div class="col-6 col-md-4 col-lg-3 col-xl-2 mb-2" data-name="{{ media.filename }}">
-        <a href="{{ url_for(media.thumb_route, event_path=event_path, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', event_path=event_path, filename=media.filename, key=key) }}"
-            class="gallery-item-link" target="_blank">
-            <div class="filename-overlay">{{ media.filename }}</div>
-            <!-- Note: The app.py logic returns thumb_route as 'thumb_file' or 'global_thumb'. -->
-            {% if media.thumb_route == 'thumb_file' %}
-            <img src="{{ url_for('thumb_file', event_path=event_path, filename=media.thumb_filename, key=key) }}"
-                class="img-fluid rounded" alt="Media" loading="lazy">
-            {% else %}
-            <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
-                alt="Generic Media" loading="lazy">
+    <div class="col-6 col-md-4 col-lg-3 col-xl-2 mb-2 gallery-col" data-name="{{ media.filename }}">
+        <div class="gallery-item-container position-relative">
+            <a href="{{ url_for(media.thumb_route, event_path=event_path, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', event_path=event_path, filename=media.filename, key=key) }}"
+                class="gallery-item-link" target="_blank">
+                <div class="filename-overlay">{{ media.filename }}</div>
+                {% if media.thumb_route == 'thumb_file' %}
+                <img src="{{ url_for('thumb_file', event_path=event_path, filename=media.thumb_filename, key=key) }}"
+                    class="img-fluid rounded" alt="Media" loading="lazy">
+                {% else %}
+                <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
+                    alt="Generic Media" loading="lazy">
+                {% endif %}
+            </a>
+            {% if session.get('is_admin') %}
+            <button class="btn btn-danger btn-sm delete-btn position-absolute top-0 end-0 m-1"
+                onclick="deleteMedia(this, '{{ media.filename }}')"
+                style="z-index: 10; padding: 0.1rem 0.3rem; opacity: 0.8;">&times;</button>
             {% endif %}
-        </a>
+        </div>
     </div>
     {% endfor %}
-    {% if media_list|length == 0 %}
-    <div class="col-12">
-        <p class="alert alert-info">No media files found for this event.</p>
-    </div>
-    {% endif %}
 </div>
 
 <!-- Loader & Sentinel -->
@@ -54,6 +64,53 @@
 {% endif %}
 
 <script>
+    {% if session.get('is_admin') %}
+    function deleteEvent() {
+        if (!confirm('Are you sure you want to delete this event? This will permanently delete all media files and cannot be undone.')) {
+            return;
+        }
+
+        fetch('/api/events/{{ event_path }}/delete', {
+            method: 'POST'
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/e';
+                } else {
+                    alert('Failed to delete event: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err.message);
+            });
+    }
+
+    function deleteMedia(btn, filename) {
+        if (!confirm(`Delete ${filename}?`)) return;
+
+        const formData = new FormData();
+        formData.append('filename', filename);
+
+        fetch(`/api/e/{{ event_path }}/delete`, {
+            method: 'POST',
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                const col = btn.closest('.gallery-col');
+                if (window.msnry) {
+                    window.msnry.remove(col);
+                    window.msnry.layout();
+                } else {
+                    col.remove();
+                }
+            } else {
+                alert("Deletion failed: " + data.error);
+            }
+        });
+    }
+    {% endif %}
+
     document.addEventListener('DOMContentLoaded', function () {
         let page = 2; // Start from page 2 since page 1 is server-rendered
         let isLoading = false;
@@ -66,7 +123,6 @@
 
         // Helper to construct URLs (simple version)
         function getMediaUrl(filename) {
-            // We use the media_file route
             return `/e/${eventPath}/m/${filename}?key=${key}`;
         }
         function getThumbUrl(item) {
@@ -96,11 +152,15 @@
                 .then(data => {
                     if (data.media && data.media.length > 0) {
                         const newElements = [];
+                        const isAdmin = grid.dataset.isAdmin === 'true';
 
                         data.media.forEach(item => {
                             const col = document.createElement('div');
-                            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 mb-2';
-                            col.dataset.name = item.filename; // Store name for sorting
+                            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 mb-2 gallery-col';
+                            col.dataset.name = item.filename;
+
+                            const container = document.createElement('div');
+                            container.className = 'gallery-item-container position-relative';
 
                             const link = document.createElement('a');
                             link.href = getMediaUrl(item.filename);
@@ -119,8 +179,20 @@
 
                             link.appendChild(overlay);
                             link.appendChild(img);
-                            col.appendChild(link);
+                            container.appendChild(link);
 
+                            if (data.is_admin || isAdmin) {
+                                const delBtn = document.createElement('button');
+                                delBtn.className = 'btn btn-danger btn-sm delete-btn position-absolute top-0 end-0 m-1';
+                                delBtn.innerHTML = '&times;';
+                                delBtn.style.zIndex = '10';
+                                delBtn.style.padding = '0.1rem 0.3rem';
+                                delBtn.style.opacity = '0.8';
+                                delBtn.onclick = function () { deleteMedia(this, item.filename); };
+                                container.appendChild(delBtn);
+                            }
+
+                            col.appendChild(container);
                             grid.appendChild(col);
                             newElements.push(col);
                         });
@@ -128,7 +200,6 @@
                         // 1. Column Count (Dimensions) - Update classes for new items
                         const colSelect = document.getElementById('col-count-select');
                         if (colSelect) {
-                            // This updates the classes (width) but DOES NOT re-order items
                             colSelect.dispatchEvent(new Event('change'));
                         }
 
@@ -137,14 +208,11 @@
                             var msnry = Masonry.data(grid);
                             if (msnry) {
                                 msnry.appended(newElements);
-
-                                // Layout again as images load to prevent overlaps
                                 if (window.imagesLoaded) {
                                     imagesLoaded(newElements).on('progress', function () {
                                         msnry.layout();
                                     });
                                 } else {
-                                    // Fallback if imagesLoaded is missing (rare)
                                     msnry.layout();
                                 }
                             }
@@ -170,5 +238,4 @@
         }
     });
 </script>
-
 {% endblock %}

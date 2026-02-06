@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Upload - {{ event.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('list_events') }}">Events</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('event_page', event_path=event_path) }}">{{ event.name
+                        }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Upload</li>
+            </ol>
+        </nav>
+        <h1 class="h2 mb-0">Upload Media</h1>
+    </div>
+    <a href="{{ url_for('event_page', event_path=event_path) }}" class="btn btn-outline-secondary">Back to Gallery</a>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-4">
+        <div id="drop-zone" class="upload-drop-zone py-5 text-center border-2 border-dashed rounded-3">
+            <p class="mb-2">Drag and drop media files here or</p>
+            <input type="file" id="file-input" multiple class="d-none">
+            <button class="btn btn-primary px-4" onclick="document.getElementById('file-input').click()">Select
+                Files</button>
+            <p class="text-muted small mt-3">Images (JPG, PNG, WebP, etc.) and Videos (MP4, MOV, etc.)</p>
+        </div>
+    </div>
+</div>
+
+<div id="upload-list" class="row g-3">
+    <!-- Upload items will be added here -->
+</div>
+
+<style>
+    .upload-drop-zone {
+        border-style: dashed !important;
+        border-color: #dee2e6;
+        background-color: #f8f9fa;
+        transition: all 0.2s ease;
+    }
+
+    .upload-drop-zone.dragover {
+        border-color: #0d6efd;
+        background-color: #e9ecef;
+    }
+
+    body.dark-mode .upload-drop-zone {
+        background-color: #212529;
+        border-color: #495057;
+    }
+
+    .upload-item .card {
+        transition: opacity 0.3s ease;
+    }
+</style>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadList = document.getElementById('upload-list');
+    const eventPath = "{{ event_path }}";
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+    function handleFiles(files) {
+        Array.from(files).forEach(uploadFile);
+    }
+
+    function uploadFile(file) {
+        const itemId = 'upload-' + Math.random().toString(36).substr(2, 9);
+
+        // Create UI item
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-lg-4 upload-item';
+        col.id = itemId;
+        col.innerHTML = `
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="text-truncate me-2" style="max-width: 70%;">
+                        <strong class="small">${file.name}</strong>
+                    </div>
+                    <div class="d-flex gap-1 align-items-center">
+                        <span class="badge bg-secondary status-badge">Pending</span>
+                        <button class="btn btn-link btn-sm p-0 text-danger cancel-btn" title="Cancel">&times;</button>
+                    </div>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    `;
+        uploadList.insertBefore(col, uploadList.firstChild);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const xhr = new XMLHttpRequest();
+        const progressBar = col.querySelector('.progress-bar');
+        const statusBadge = col.querySelector('.status-badge');
+        const cancelBtn = col.querySelector('.cancel-btn');
+
+        cancelBtn.onclick = () => {
+            xhr.abort();
+            statusBadge.textContent = 'Cancelled';
+            statusBadge.className = 'badge bg-warning';
+            cancelBtn.remove();
+        };
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total) * 100;
+                progressBar.style.width = percent + '%';
+                statusBadge.textContent = Math.round(percent) + '%';
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = 'Complete';
+                progressBar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+                progressBar.classList.add('bg-success');
+                cancelBtn.remove();
+
+                // Add thumbnail preview
+                if (response.thumb_url) {
+                    const cardBody = col.querySelector('.card-body');
+                    const thumbImg = document.createElement('img');
+                    thumbImg.src = response.thumb_url;
+                    thumbImg.className = 'img-fluid rounded mt-2';
+                    thumbImg.alt = 'Thumbnail';
+                    cardBody.appendChild(thumbImg);
+                }
+            } else {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = 'Error';
+                addRetryBtn(col, file);
+            }
+        };
+
+        xhr.onerror = () => {
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = 'Failed';
+            addRetryBtn(col, file);
+        };
+
+        xhr.open('POST', `/api/e/${eventPath}/upload`, true);
+        xhr.send(formData);
+    }
+
+    function addRetryBtn(col, file) {
+        const cancelBtn = col.querySelector('.cancel-btn');
+        if (cancelBtn) cancelBtn.remove();
+
+        const badgeWrapper = col.querySelector('.d-flex.gap-1');
+        if (col.querySelector('.retry-btn')) return;
+
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'btn btn-link btn-sm p-0 retry-btn';
+        retryBtn.innerHTML = 'Retry';
+        retryBtn.onclick = () => {
+            col.remove();
+            uploadFile(file);
+        };
+        badgeWrapper.appendChild(retryBtn);
+    }
+</script>
+{% endblock %}
