@@ -19,9 +19,8 @@
 
                     <div class="mb-3">
                         <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="date" name="date"
-                            value="{{ event.date if event else '' }}" placeholder="e.g., January 2024" required>
-                        <div class="form-text">Enter a descriptive date (e.g., "Summer 2024", "Dec 25, 2023")</div>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                        <div class="form-text">Select the event date (will be saved in dd-mm-yyyy format).</div>
                     </div>
 
                     <div class="mb-3">
@@ -72,8 +71,29 @@
     const form = document.getElementById('event-form');
     const submitBtn = document.getElementById('submit-btn');
     const errorMsg = document.getElementById('error-message');
+    const dateInput = document.getElementById('date');
     const isEdit = {{ 'true' if event else 'false' }};
     const eventPath = "{{ event_path if event else '' }}";
+
+    // Initialize date if editing
+    if (isEdit) {
+        const rawDate = "{{ event.date if event else '' }}"; // Expected dd-mm-yyyy
+        if (rawDate && rawDate.includes('-')) {
+            const parts = rawDate.split('-');
+            if (parts.length === 3) {
+                // Convert dd-mm-yyyy to yyyy-mm-dd for the picker
+                // Parts are [dd, mm, yyyy] or [yyyy, mm, dd]? 
+                // Currently in events.json it is yyyy-mm-dd. 
+                // But the user WANTS dd-mm-yyyy.
+                // If it's currently yyyy-mm-dd, parts are [yyyy, mm, dd].
+                if (parts[0].length === 4) {
+                    dateInput.value = rawDate;
+                } else {
+                    dateInput.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+        }
+    }
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -84,6 +104,16 @@
         errorMsg.classList.add('d-none');
 
         const formData = new FormData(form);
+
+        // Convert yyyy-mm-dd to dd-mm-yyyy before sending
+        const pickerDate = formData.get('date');
+        if (pickerDate) {
+            const dp = pickerDate.split('-');
+            if (dp.length === 3) {
+                formData.set('date', `${dp[2]}-${dp[1]}-${dp[0]}`);
+            }
+        }
+
         const url = isEdit ? `/api/events/${eventPath}/update` : '/api/events/create';
 
         fetch(url, {
@@ -93,7 +123,6 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    // Redirect to event page or events list
                     if (isEdit) {
                         window.location.href = `/e/${eventPath}`;
                     } else {
