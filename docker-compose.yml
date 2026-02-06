@@ -6,7 +6,7 @@ services:
     ports:
       - "2021:2021"
     volumes:
-      - ./data:/app/data
+      - /media/sh3ldr0id-hdd/Ameryd:/app/data
     environment:
       - PORT=2021
       - FLASK_ENV=production
