@@ -3,14 +3,14 @@
 
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}Ameryd Gallery{% endblock %}</title>
+  <title>{% block title %}Ameryd{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="{% block og_title %}Ameryd Gallery{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}Ameryd{% endblock %}">
   <meta property="og:description"
-    content="{% block og_description %}Ameryd Gallery - Elegant Photo & Video Management{% endblock %}">
+    content="{% block og_description %}Ameryd - Content Delivery Manager{% endblock %}">
   <meta property="og:image"
     content="{% block og_image %}{{ url_for('static', filename='img/og-image.jpg', _external=True) if logo_exists else '' }}{% endblock %}">
 
