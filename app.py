@@ -115,6 +115,10 @@ def event_api(event_path):
         'next_page': page + 1 if has_more else None
     })
 
+def add_cache_headers(response, max_age=31536000):
+    response.headers['Cache-Control'] = f'public, max-age={max_age}, immutable'
+    return response
+
 @app.route('/e/<event_path>/m/<filename>')
 def media_file(event_path, filename):
     events = load_events()
@@ -127,7 +131,9 @@ def media_file(event_path, filename):
     media_dir = os.path.join(DATA_DIR, ev['folder'], 'Media')
     if not os.path.isdir(media_dir):
         abort(404)
-    return send_from_directory(media_dir, filename)
+    response = send_from_directory(media_dir, filename)
+    # Cache media for a bit shorter than thumbs, or same if immutable
+    return add_cache_headers(response, max_age=86400) # 1 day for full media
 
 @app.route('/e/<event_path>/t/<filename>')
 def thumb_file(event_path, filename):
@@ -140,7 +146,8 @@ def thumb_file(event_path, filename):
         abort(403)
     thumb_dir = os.path.join(DATA_DIR, ev['folder'], 'Thumbnail')
     if os.path.isdir(thumb_dir) and os.path.exists(os.path.join(thumb_dir, filename)):
-        return send_from_directory(thumb_dir, filename)
+        response = send_from_directory(thumb_dir, filename)
+        return add_cache_headers(response)
     # Fallback: not found in event thumb dir, use global thumbs
     return global_thumb(filename)
 
@@ -152,13 +159,15 @@ def event_thumb(event_path):
     # Check if custom thumbnail exists in event root
     event_folder = os.path.join(DATA_DIR, ev['folder'])
     if os.path.exists(os.path.join(event_folder, 'thumbnail.webp')):
-        return send_from_directory(event_folder, 'thumbnail.webp')
+        response = send_from_directory(event_folder, 'thumbnail.webp')
+        return add_cache_headers(response)
     return global_thumb('event.webp')
 
 @app.route('/thumbs/<filename>')
 def global_thumb(filename):
     # Serve global fallback thumbnails (no auth needed)
-    return send_from_directory(GLOBAL_THUMB_DIR, filename)
+    response = send_from_directory(GLOBAL_THUMB_DIR, filename)
+    return add_cache_headers(response)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 2021))
