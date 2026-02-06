@@ -25,6 +25,7 @@ EXPOSE 2021
 # Define environment variable for Flask
 ENV FLASK_APP=app.py
 ENV PORT=2021
+ENV ADMIN_PASSWORD=admin
 
 # Run app.py when the container launches
 CMD ["python", "app.py"]
