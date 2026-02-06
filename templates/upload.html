@@ -28,7 +28,7 @@
     </div>
 </div>
 
-<div id="upload-list" class="row g-3">
+<div id="upload-list" class="d-flex flex-column gap-2">
     <!-- Upload items will be added here -->
 </div>
 
@@ -50,8 +50,32 @@
         border-color: #495057;
     }
 
-    .upload-item .card {
-        transition: opacity 0.3s ease;
+    .upload-item-row {
+        background-color: #fff;
+        transition: all 0.3s ease;
+    }
+
+    body.dark-mode .upload-item-row {
+        background-color: #1e1e1e;
+        border-color: #333 !important;
+    }
+
+    .thumb-preview {
+        width: 60px;
+        height: 60px;
+        flex-shrink: 0;
+        overflow: hidden;
+        background-color: #eee;
+    }
+
+    body.dark-mode .thumb-preview {
+        background-color: #2a2a2a;
+    }
+
+    .thumb-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
 </style>
 
@@ -84,36 +108,38 @@
         const itemId = 'upload-' + Math.random().toString(36).substr(2, 9);
 
         // Create UI item
-        const col = document.createElement('div');
-        col.className = 'col-md-6 col-lg-4 upload-item';
-        col.id = itemId;
-        col.innerHTML = `
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="text-truncate me-2" style="max-width: 70%;">
-                        <strong class="small">${file.name}</strong>
-                    </div>
-                    <div class="d-flex gap-1 align-items-center">
-                        <span class="badge bg-secondary status-badge">Pending</span>
-                        <button class="btn btn-link btn-sm p-0 text-danger cancel-btn" title="Cancel">&times;</button>
-                    </div>
+        const row = document.createElement('div');
+        row.className = 'upload-item-row p-2 border rounded shadow-sm';
+        row.id = itemId;
+        row.innerHTML = `
+            <div class="d-flex align-items-center gap-3">
+                <div class="thumb-preview rounded d-flex align-items-center justify-content-center">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                 </div>
-                <div class="progress" style="height: 6px;">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                <div class="flex-grow-1 min-width-0">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-truncate fw-bold small" title="${file.name}">${file.name}</span>
+                        <div class="d-flex align-items-center gap-2">
+                             <span class="badge bg-secondary status-badge">Pending</span>
+                             <button class="btn btn-link btn-sm p-0 text-danger cancel-btn" title="Cancel" style="line-height: 1;">&times;</button>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-        uploadList.insertBefore(col, uploadList.firstChild);
+        `;
+        uploadList.insertBefore(row, uploadList.firstChild);
 
         const formData = new FormData();
         formData.append('file', file);
 
         const xhr = new XMLHttpRequest();
-        const progressBar = col.querySelector('.progress-bar');
-        const statusBadge = col.querySelector('.status-badge');
-        const cancelBtn = col.querySelector('.cancel-btn');
+        const progressBar = row.querySelector('.progress-bar');
+        const statusBadge = row.querySelector('.status-badge');
+        const cancelBtn = row.querySelector('.cancel-btn');
+        const thumbContainer = row.querySelector('.thumb-preview');
 
         cancelBtn.onclick = () => {
             xhr.abort();
@@ -141,45 +167,45 @@
 
                 // Add thumbnail preview
                 if (response.thumb_url) {
-                    const cardBody = col.querySelector('.card-body');
-                    const thumbImg = document.createElement('img');
-                    thumbImg.src = response.thumb_url;
-                    thumbImg.className = 'img-fluid rounded mt-2';
-                    thumbImg.alt = 'Thumbnail';
-                    cardBody.appendChild(thumbImg);
+                    thumbContainer.innerHTML = `<img src="${response.thumb_url}" alt="Preview">`;
+                } else {
+                    thumbContainer.innerHTML = '<span class="text-muted small">N/A</span>';
                 }
             } else {
                 statusBadge.className = 'badge bg-danger';
                 statusBadge.textContent = 'Error';
-                addRetryBtn(col, file);
+                thumbContainer.innerHTML = '<span class="text-danger small">!</span>';
+                addRetryBtn(row, file);
             }
         };
 
         xhr.onerror = () => {
             statusBadge.className = 'badge bg-danger';
             statusBadge.textContent = 'Failed';
-            addRetryBtn(col, file);
+            thumbContainer.innerHTML = '<span class="text-danger small">!</span>';
+            addRetryBtn(row, file);
         };
 
         xhr.open('POST', `/api/e/${eventPath}/upload`, true);
         xhr.send(formData);
     }
 
-    function addRetryBtn(col, file) {
-        const cancelBtn = col.querySelector('.cancel-btn');
+    function addRetryBtn(row, file) {
+        const cancelBtn = row.querySelector('.cancel-btn');
         if (cancelBtn) cancelBtn.remove();
 
-        const badgeWrapper = col.querySelector('.d-flex.gap-1');
-        if (col.querySelector('.retry-btn')) return;
+        const badgeWrapper = row.querySelector('.d-flex.align-items-center.gap-2');
+        if (row.querySelector('.retry-btn')) return;
 
         const retryBtn = document.createElement('button');
-        retryBtn.className = 'btn btn-link btn-sm p-0 retry-btn';
+        retryBtn.className = 'btn btn-link btn-sm p-0 retry-btn text-decoration-none';
         retryBtn.innerHTML = 'Retry';
         retryBtn.onclick = () => {
-            col.remove();
+            row.remove();
             uploadFile(file);
         };
         badgeWrapper.appendChild(retryBtn);
     }
 </script>
+
 {% endblock %}
