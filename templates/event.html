@@ -233,6 +233,11 @@
                     loader.style.display = 'none';
                     if (!hasMore) {
                         observer.unobserve(sentinel);
+                    } else {
+                        // Check if we need to load more immediately (if screen not full)
+                        if (sentinel.getBoundingClientRect().top < window.innerHeight) {
+                            loadMore();
+                        }
                     }
                 });
         }

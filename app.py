@@ -14,7 +14,7 @@ EVENTS_FILE = os.path.join(DATA_DIR, 'events.json')
 GLOBAL_THUMB_DIR = os.path.join(DATA_DIR, 'Thumbnail')
 
 # Auth Configuration
-# os.environ["ADMIN_PASSWORD"] = "admin"
+os.environ["ADMIN_PASSWORD"] = "admin"
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
 import hashlib
@@ -197,7 +197,7 @@ def event_api(event_path):
     
     # Pagination
     page = request.args.get('page', default=1, type=int)
-    PAGE_SIZE = 20
+    PAGE_SIZE = 60
     
     start = (page - 1) * PAGE_SIZE
     end = start + PAGE_SIZE
