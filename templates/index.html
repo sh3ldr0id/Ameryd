@@ -7,32 +7,49 @@
     <a href="{{ url_for('create_event_page') }}" class="btn btn-primary">+ Create Event</a>
     {% endif %}
 </div>
-<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-    {% for path, ev in events.items() if not ev.hidden %}
-    <div class="col">
-        <div class="card h-100">
-            <a href="{{ url_for('event_page', event_path=path) }}">
-                <img src="{{ url_for('event_thumb', event_path=path) }}" class="card-img-top" alt="Event Thumbnail"
-                    loading="lazy">
+<div class="row g-2" id="events-grid">
+    {% for path, ev in events %}
+    <div class="col-6 col-md-4 col-lg-3 mb-2 events-col">
+        <div class="card border-0 text-white bg-dark">
+            <a href="{{ url_for('event_page', event_path=path) }}" class="text-white">
+                <div class="position-relative">
+                    <img src="{{ url_for('event_thumb', event_path=path) }}" class="card-img rounded"
+                        alt="{{ ev.name }}" loading="lazy">
+                    <div class="event-overlay rounded-bottom">
+                        <h5 class="card-title mb-1">{{ ev.name }}</h5>
+                        <p class="card-text small mb-1 text-truncate">{{ ev.description }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-white-50">{{ ev.date }}</small>
+                            <div class="d-flex gap-1">
+                                {% if ev.hidden %}
+                                <span class="badge bg-warning text-dark">Hidden</span>
+                                {% endif %}
+                                {% if ev.password %}
+                                <span class="badge bg-secondary">Locked</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </a>
-
-            <div class="card-body">
-                <h5 class="card-title">
-                    <a href="{{ url_for('event_page', event_path=path) }}" class="text-decoration-none text-dark">{{
-                        ev.name }}</a>
-                </h5>
-                <p class="card-text">{{ ev.description }}</p>
-            </div>
-            <div class="card-footer bg-white border-top-0">
-                <small class="text-muted">{{ ev.date }}</small>
-                {% if ev.password %}
-                <span class="float-end badge bg-secondary">Locked</span>
-                {% endif %}
-            </div>
         </div>
     </div>
     {% else %}
     <p>No public events available.</p>
     {% endfor %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var grid = document.querySelector('#events-grid');
+        if (grid) {
+            imagesLoaded(grid, function () {
+                new Masonry(grid, {
+                    itemSelector: '.events-col',
+                    percentPosition: true
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}

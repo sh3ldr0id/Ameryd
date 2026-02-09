@@ -63,6 +63,14 @@
                     </div>
                     {% endif %}
 
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="hidden" name="hidden" {{ 'checked' if event
+                            and event.hidden else '' }}>
+                        <label class="form-check-label" for="hidden">Hidden Event</label>
+                        <div class="form-text">Hidden events won't appear on the main page but are accessible via direct
+                            link.</div>
+                    </div>
+
                     <div class="alert alert-danger d-none" id="error-message"></div>
 
                     <div class="d-grid gap-2">

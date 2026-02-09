@@ -30,7 +30,7 @@
 <!-- Show media gallery -->
 <div id="gallery-grid" class="row g-2" data-is-admin="{{ 'true' if session.get('is_admin') else 'false' }}">
     {% for media in media_list %}
-    <div class="col-6 col-md-4 col-lg-3 col-xl-2 mb-2 gallery-col" data-name="{{ media.filename }}">
+    <div class="col-6 col-md-4 col-lg-3 mb-2 gallery-col" data-name="{{ media.filename }}">
         <div class="gallery-item-container position-relative">
             <a href="{{ url_for(media.thumb_route, event_path=event_path, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', event_path=event_path, filename=media.filename, key=key) }}"
                 class="gallery-item-link" target="_blank">
@@ -156,7 +156,7 @@
 
                         data.media.forEach(item => {
                             const col = document.createElement('div');
-                            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 mb-2 gallery-col';
+                            col.className = 'col-6 col-md-4 col-lg-3 mb-2 gallery-col';
                             col.dataset.name = item.filename;
 
                             const container = document.createElement('div');

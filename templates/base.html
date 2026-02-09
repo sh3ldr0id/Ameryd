@@ -9,8 +9,7 @@
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="{% block og_title %}Ameryd{% endblock %}">
-  <meta property="og:description"
-    content="{% block og_description %}Ameryd - Content Delivery Manager{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Ameryd - Content Delivery Manager{% endblock %}">
   <meta property="og:image"
     content="{% block og_image %}{{ url_for('static', filename='img/og-image.jpg', _external=True) if logo_exists else '' }}{% endblock %}">
 
@@ -70,10 +69,11 @@
     <div class="mb-3">
       <label class="form-label">Columns Per Row</label>
       <select class="form-select" id="col-count-select">
+        <option value="auto" selected>Auto (Default)</option>
         <option value="2">2 Columns</option>
         <option value="3">3 Columns</option>
         <option value="4">4 Columns</option>
-        <option value="6" selected>6 Columns (Default)</option>
+        <option value="6">6 Columns</option>
         <option value="12">12 Columns</option>
       </select>
     </div>

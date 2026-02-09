@@ -104,8 +104,27 @@ def root():
 
 @app.route('/e')
 def list_events():
-    events = load_events()
-    return render_template('index.html', events=events)
+    events_dict = load_events()
+    
+    # Sort events by date descending (newest first)
+    # Date format is assume DD-MM-YYYY
+    def parse_date(date_str):
+        try:
+            from datetime import datetime
+            return datetime.strptime(date_str, '%d-%m-%Y')
+        except:
+            return None
+
+    # Convert to list of tuples for sorting: [(path, data), ...]
+    events_list = []
+    is_admin = session.get('is_admin')
+    for path, data in events_dict.items():
+        if not data.get('hidden') or is_admin:
+            events_list.append((path, data))
+            
+    events_list.sort(key=lambda x: parse_date(x[1].get('date', '')), reverse=True)
+    
+    return render_template('index.html', events=events_list)
 
 @app.route('/authenticate', methods=['GET', 'POST'])
 def login():
@@ -223,18 +242,8 @@ def api_upload(event_path):
     media_path = os.path.join(media_dir, filename)
     file_ext = os.path.splitext(filename)[1].lower()
     
-    if file_ext in IMAGE_EXTS:
-        try:
-            from PIL import Image, ImageOps
-            img = Image.open(file)
-            img = ImageOps.exif_transpose(img)
-            img.save(media_path)
-        except Exception as e:
-            print(f"Failed to auto-rotate image {filename}: {e}")
-            file.seek(0)
-            file.save(media_path)
-    else:
-        file.save(media_path)
+    # Save original file directly to preserve quality (no re-compression)
+    file.save(media_path)
     
     thumb_fname = filename + '.webp'
     thumb_path = os.path.join(thumb_dir, thumb_fname)
@@ -325,7 +334,8 @@ def api_create_event():
         'name': name,
         'date': date,
         'description': description,
-        'folder': folder
+        'folder': folder,
+        'hidden': request.form.get('hidden') == 'on'
     }
     
     # Add password if provided
@@ -386,6 +396,7 @@ def api_update_event(event_path):
     events[event_path]['name'] = name
     events[event_path]['date'] = date
     events[event_path]['description'] = description
+    events[event_path]['hidden'] = request.form.get('hidden') == 'on'
     
     # Update or remove password
     if password:

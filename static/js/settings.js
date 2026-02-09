@@ -142,7 +142,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Regex to clear column classes
             col.className = col.className.replace(/col-(md|lg|xl|xxl)?-?\d+/g, '').trim();
-            col.classList.add('col-' + (12 / count)); // e.g. count 4 -> col-3
+
+            if (count === 'auto' || isNaN(count)) {
+                // Auto / Responsive Mode (2 on mobile, 3 on md, 4 on lg)
+                col.classList.add('col-6', 'col-md-4', 'col-lg-3');
+            } else {
+                // Fixed Count Mode
+                col.classList.add('col-' + (12 / count));
+            }
             col.classList.add('mb-2'); // Restore margin
         });
 
@@ -192,7 +199,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (colCountSelect) {
         colCountSelect.addEventListener('change', function () {
-            updateColumnCount(parseInt(this.value));
+            const val = this.value;
+            updateColumnCount(val === 'auto' ? 'auto' : parseInt(val));
         });
     }
 
