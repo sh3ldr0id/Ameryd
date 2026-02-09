@@ -361,7 +361,7 @@ def api_create_event():
                 
                 # Use generate_thumbnail to resize and convert to WebP
                 from utils import generate_thumbnail
-                generate_thumbnail(temp_path, final_thumb_path)
+                generate_thumbnail(temp_path, final_thumb_path, quality=95)
                 
                 # Clean up temp file
                 if os.path.exists(temp_path):
@@ -424,7 +424,7 @@ def api_update_event(event_path):
                 
                 # Use generate_thumbnail to resize and convert to WebP
                 from utils import generate_thumbnail
-                generate_thumbnail(temp_path, final_thumb_path)
+                generate_thumbnail(temp_path, final_thumb_path, quality=95)
                 
                 # Clean up temp file
                 if os.path.exists(temp_path):

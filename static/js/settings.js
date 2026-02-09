@@ -34,13 +34,33 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Init Dark Mode
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkModeToggle) {
-        darkModeToggle.checked = savedDarkMode;
-        applyDarkMode(savedDarkMode);
+    const savedDarkMode = localStorage.getItem('darkMode');
+    const systemDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
 
+    function setTheme(isDark) {
+        darkModeToggle.checked = isDark;
+        applyDarkMode(isDark);
+    }
+
+    if (darkModeToggle) {
+        if (savedDarkMode !== null) {
+            // User override exists
+            setTheme(savedDarkMode === 'true');
+        } else {
+            // Default to system
+            setTheme(systemDarkMode.matches);
+        }
+
+        // Listen for toggle changes (User override)
         darkModeToggle.addEventListener('change', function () {
             applyDarkMode(this.checked);
+        });
+
+        // Listen for system changes (Only if no override)
+        systemDarkMode.addEventListener('change', (e) => {
+            if (localStorage.getItem('darkMode') === null) {
+                setTheme(e.matches);
+            }
         });
     }
 
