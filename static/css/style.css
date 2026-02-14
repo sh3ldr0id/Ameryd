@@ -274,3 +274,56 @@ body.dark-mode .view-list a:hover {
 .event-overlay * {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
+
+/* ── Dynamic Gallery View ──────────────────────────────── */
+
+#dynamic-gallery-container {
+    position: relative;
+    width: 100%;
+}
+
+.dynamic-viewport {
+    position: relative;
+    width: 100%;
+}
+
+.dynamic-item {
+    position: absolute;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease;
+}
+
+.dynamic-item a {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #e8e8e8;
+}
+
+body.dark-mode .dynamic-item a {
+    background: #2a2a2a;
+}
+
+.dynamic-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.25s ease;
+}
+
+.dynamic-item:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+body.dark-mode .dynamic-item {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .dynamic-item:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}

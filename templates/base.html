@@ -60,7 +60,8 @@
     <div class="mb-3">
       <label class="form-label">View Mode</label>
       <select class="form-select" id="view-mode-select">
-        <option value="masonry">Masonry (Default)</option>
+        <option value="dynamic">Dynamic (Default)</option>
+        <option value="masonry">Masonry</option>
         <option value="grid">Grid (Uniform)</option>
         <option value="list">List (Vertical)</option>
       </select>
@@ -97,6 +98,8 @@
   <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js"></script>
   <!-- ImagesLoaded JS -->
   <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
+  <!-- Dynamic View JS -->
+  <script src="{{ url_for('static', filename='js/dynamic_view.js') }}"></script>
   <!-- Settings JS -->
   <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
 

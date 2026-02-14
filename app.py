@@ -12,9 +12,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 EVENTS_FILE = os.path.join(DATA_DIR, 'events.json')
 GLOBAL_THUMB_DIR = os.path.join(DATA_DIR, 'Thumbnail')
+MEDIA_PAGE_SIZE = 60
 
 # Auth Configuration
-os.environ["ADMIN_PASSWORD"] = "admin"
+# os.environ["ADMIN_PASSWORD"] = "admin"
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
 import hashlib
@@ -74,6 +75,22 @@ def get_event_media_list(ev):
     media_dir = os.path.join(event_folder, 'Media')
     thumb_dir = os.path.join(event_folder, 'Thumbnail')
     
+    from utils import get_media_dimensions
+    
+    # Metadata Cache Path
+    metadata_file = os.path.join(event_folder, 'metadata.json')
+    metadata = {}
+    
+    # Load existing metadata
+    if os.path.exists(metadata_file):
+        try:
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+        except:
+            metadata = {}
+            
+    metadata_dirty = False
+    
     media_list = []
     if os.path.isdir(media_dir):
         # Sort files to ensure consistent order for pagination
@@ -91,11 +108,36 @@ def get_event_media_list(ev):
                     # Use global fallback
                     thumb_file = 'image.webp' if ext in IMAGE_EXTS else 'video.webp'
                     thumb_url_fn = 'global_thumb'  # route for global thumbs
+                
+                # Get Dimensions from Metadata
+                dims = metadata.get(fname)
+                if not dims:
+                    # Calculate and cache
+                    full_media_path = os.path.join(media_dir, fname)
+                    w, h = get_media_dimensions(full_media_path)
+                    if w and h:
+                        dims = [w, h]
+                        metadata[fname] = dims
+                        metadata_dirty = True
+                    else:
+                        dims = [800, 600] # Fallback default
+                
                 media_list.append({
                     'filename': fname,
                     'thumb_filename': thumb_file,
-                    'thumb_route': thumb_url_fn
+                    'thumb_route': thumb_url_fn,
+                    'width': dims[0],
+                    'height': dims[1]
                 })
+        
+        # Save metadata if updated
+        if metadata_dirty:
+            try:
+                with open(metadata_file, 'w') as f:
+                    json.dump(metadata, f)
+            except:
+                pass
+                
     return media_list
 
 @app.route('/')
@@ -175,9 +217,8 @@ def event_page(event_path):
     # Unlocked: gather media list
     all_media = get_event_media_list(ev)
     
-    # Pagination: Load first chunk (e.g., 20)
-    PAGE_SIZE = 20
-    media_list = all_media[:PAGE_SIZE]
+    # Pagination: Load first chunk
+    media_list = all_media[:MEDIA_PAGE_SIZE]
     
     # Render gallery
     return render_template('event.html', event=ev, event_path=event_path,
@@ -197,10 +238,9 @@ def event_api(event_path):
     
     # Pagination
     page = request.args.get('page', default=1, type=int)
-    PAGE_SIZE = 60
     
-    start = (page - 1) * PAGE_SIZE
-    end = start + PAGE_SIZE
+    start = (page - 1) * MEDIA_PAGE_SIZE
+    end = start + MEDIA_PAGE_SIZE
     
     chunk = all_media[start:end]
     has_more = end < len(all_media)

@@ -53,3 +53,28 @@ def generate_thumb_for_any(media_path, thumb_path, quality=80):
     elif ext in VIDEO_EXTS:
         return generate_video_thumbnail(media_path, thumb_path, quality=quality)
     return False
+
+def get_media_dimensions(media_path):
+    """Get dimensions (width, height) of an image or video."""
+    ext = os.path.splitext(media_path)[1].lower()
+    
+    if ext in IMAGE_EXTS:
+        try:
+            with Image.open(media_path) as img:
+                return img.size # (width, height)
+        except:
+            pass
+            
+    elif ext in VIDEO_EXTS:
+        try:
+            cap = cv2.VideoCapture(media_path)
+            if cap.isOpened():
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                if w > 0 and h > 0:
+                    return (w, h)
+        except:
+            pass
+            
+    return (0, 0)

@@ -53,6 +53,9 @@
     {% endfor %}
 </div>
 
+<!-- Dynamic Gallery Container -->
+<div id="dynamic-gallery-container" style="display: none; min-height: 100vh;"></div>
+
 <!-- Loader & Sentinel -->
 <div id="loading" class="text-center py-4" style="display: none;">
     <div class="spinner-border text-primary" role="status">
@@ -62,6 +65,36 @@
 <div id="scroll-sentinel"></div>
 
 {% endif %}
+
+<script id="dynamic-data" type="application/json">
+{% if not locked %}
+{{ media_list | tojson }}
+{% else %}
+[]
+{% endif %}
+</script>
+<script>
+    // Parse data for Dynamic Gallery View
+    (function () {
+        var raw = JSON.parse(document.getElementById('dynamic-data').textContent || '[]');
+        var eventPath = "{{ event_path }}";
+        var key = "{{ key }}";
+        window._dynamicEventPath = eventPath;
+        window._dynamicKey = key;
+        window._dynamicInitialData = raw.map(function (m) {
+            var thumbUrl = m.thumb_route === 'thumb_file'
+                ? '/e/' + eventPath + '/t/' + m.thumb_filename + '?key=' + key
+                : '/thumbs/' + m.thumb_filename;
+            return {
+                filename: m.filename,
+                thumb_url: thumbUrl,
+                full_url: '/e/' + eventPath + '/m/' + m.filename + '?key=' + key,
+                width: m.width || 800,
+                height: m.height || 600
+            };
+        });
+    })();
+</script>
 
 <script>
     {% if session.get('is_admin') %}
