@@ -123,25 +123,19 @@ class DynamicGallery {
         const gap = this.options.gap;
         const cols = this.colCount;
         const colW = (this.containerWidth - (cols - 1) * gap) / cols;
-        const colH = new Array(cols).fill(0);
+        const rowH = colW; // Unified height for grid
 
-        this.itemPositions = this.items.map((item) => {
-            // Shortest column
-            let ci = 0;
-            for (let i = 1; i < cols; i++) {
-                if (colH[i] < colH[ci]) ci = i;
-            }
-            const left = ci * (colW + gap);
-            const top = colH[ci];
-            const ar = (item.height || 600) / (item.width || 800);
-            const h = colW * ar;
-
-            colH[ci] += h + gap;
-            return { left, top, width: colW, height: h, data: item };
+        this.itemPositions = this.items.map((item, idx) => {
+            const row = Math.floor(idx / cols);
+            const col = idx % cols;
+            const left = col * (colW + gap);
+            const top = row * (rowH + gap);
+            return { left, top, width: colW, height: rowH, data: item };
         });
 
-        this.totalHeight = Math.max(...colH);
-        if (this.viewport) this.viewport.style.height = `${this.totalHeight}px`;
+        const numRows = Math.ceil(this.items.length / cols);
+        this.totalHeight = numRows * (rowH + gap) - gap;
+        if (this.viewport) this.viewport.style.height = `${Math.max(0, this.totalHeight)}px`;
     }
 
     // ── Render (virtualization) ─────────────────────────────────
@@ -309,19 +303,45 @@ class DynamicGallery {
     }
 
     _zoomTo(newCols, anchorX, anchorY) {
+        // Subtle haptic feedback
+        if (navigator.vibrate) navigator.vibrate(5);
+
         const scrollY = window.scrollY || window.pageYOffset;
-        const containerTop = this.container.getBoundingClientRect().top + scrollY;
+        const rect = this.container.getBoundingClientRect();
+        const containerTop = rect.top + scrollY;
+        const containerLeft = rect.left + (window.scrollX || 0);
+
+        const absX = (anchorX || window.innerWidth / 2) - containerLeft;
         const absY = scrollY + (anchorY || window.innerHeight / 2) - containerTop;
 
-        // Find anchor item
+        // Find anchor item (the one under the cursor/focal point)
         let anchorIdx = -1;
-        let anchorOff = 0;
+        let anchorRatioY = 0.5; // Default to center
+
         for (const i of this.visibleIndices) {
             const p = this.itemPositions[i];
-            if (p && absY >= p.top && absY <= p.top + p.height) {
+            if (p && absX >= p.left && absX <= p.left + p.width &&
+                absY >= p.top && absY <= p.top + p.height) {
                 anchorIdx = i;
-                anchorOff = absY - p.top;
+                anchorRatioY = (absY - p.top) / p.height;
                 break;
+            }
+        }
+
+        // Fallback: If no item is directly under cursor, find the closest one
+        if (anchorIdx === -1) {
+            let minDist = Infinity;
+            for (const i of this.visibleIndices) {
+                const p = this.itemPositions[i];
+                if (!p) continue;
+                const midX = p.left + p.width / 2;
+                const midY = p.top + p.height / 2;
+                const dist = Math.sqrt(Math.pow(absX - midX, 2) + Math.pow(absY - midY, 2));
+                if (dist < minDist) {
+                    minDist = dist;
+                    anchorIdx = i;
+                    anchorRatioY = (absY - p.top) / p.height;
+                }
             }
         }
 
@@ -335,11 +355,12 @@ class DynamicGallery {
 
         this._layout();
 
-        // Restore scroll so the anchor item stays put
+        // Restore scroll so the focal point stays under the cursor
         if (anchorIdx !== -1 && this.itemPositions[anchorIdx]) {
             const newP = this.itemPositions[anchorIdx];
-            const target = newP.top + anchorOff - (anchorY || window.innerHeight / 2) + containerTop;
-            window.scrollTo(0, Math.max(0, target));
+            const newAbsY = newP.top + (anchorRatioY * newP.height);
+            const targetScrollY = newAbsY - (anchorY || window.innerHeight / 2) + containerTop;
+            window.scrollTo(0, Math.max(0, targetScrollY));
         }
 
         this._render();
