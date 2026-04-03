@@ -2,17 +2,19 @@
 {% block title %}{{ event.name }}{% endblock %}
 {% block og_title %}{{ event.name }}{% endblock %}
 {% block og_description %}{{ event.description }}{% endblock %}
-{% block og_image %}{{ url_for('event_thumb', org_id=org_id, event_id=event_id, _external=True) }}{% endblock %}
+{% block og_image %}{{ url_for('event_thumb', event_id=event_id, _external=True) }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1>{{ event.name }}</h1>
     <div class="d-flex gap-2">
         {% if session.get('is_admin') %}
-        <a href="{{ url_for('upload_page', org_id=org_id, event_id=event_id) }}" class="btn btn-primary">Add Media</a>
-        <a href="{{ url_for('edit_event_page', org_id=org_id, event_id=event_id) }}" class="btn btn-outline-primary">Edit Event</a>
+        <a href="{{ url_for('upload_page', event_id=event_id) }}" class="btn btn-primary">Add Media</a>
+        <a href="{{ url_for('edit_event_page', event_id=event_id) }}" class="btn btn-outline-primary">Edit Event</a>
         <button class="btn btn-outline-danger" onclick="deleteEvent()">Delete Event</button>
         {% endif %}
-        <a href="{{ url_for('org_page', org_id=org_id) }}" class="btn btn-outline-secondary">&larr; Back to Organization</a>
+        {% if org_id %}
+        <a href="{{ url_for('org_page', org_id=org_id) }}" class="btn btn-outline-secondary">&larr; Organization</a>
+        {% endif %}
     </div>
 </div>
 <p class="text-muted"><em>{{ event.date }}</em> – {{ event.description }}</p>
@@ -32,11 +34,11 @@
     {% for media in media_list %}
     <div class="col-6 col-md-4 col-lg-3 mb-2 gallery-col" data-name="{{ media.filename }}">
         <div class="gallery-item-container position-relative">
-            <a href="{{ url_for(media.thumb_route, org_id=org_id, event_id=event_id, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', org_id=org_id, event_id=event_id, filename=media.filename, key=key) }}"
+            <a href="{{ url_for('media_file', event_id=event_id, filename=media.filename, key=key) }}"
                 class="gallery-item-link" target="_blank">
                 <div class="filename-overlay">{{ media.filename }}</div>
                 {% if media.thumb_route == 'thumb_file' %}
-                <img src="{{ url_for('thumb_file', org_id=org_id, event_id=event_id, filename=media.thumb_filename, key=key) }}"
+                <img src="{{ url_for('thumb_file', event_id=event_id, filename=media.thumb_filename, key=key) }}"
                     class="img-fluid rounded" alt="Media" loading="lazy">
                 {% else %}
                 <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
@@ -77,19 +79,18 @@
     // Parse data for Dynamic Gallery View
     (function () {
         var raw = JSON.parse(document.getElementById('dynamic-data').textContent || '[]');
-        var orgId = "{{ org_id }}";
         var eventId = "{{ event_id }}";
         var key = "{{ key }}";
-        window._dynamicOrgId = orgId; window._dynamicEventId = eventId;
+        window._dynamicEventId = eventId;
         window._dynamicKey = key;
         window._dynamicInitialData = raw.map(function (m) {
             var thumbUrl = m.thumb_route === 'thumb_file'
-                ? '/' + orgId + '/' + eventId + '/t/' + m.thumb_filename + '?key=' + key
+                ? '/' + eventId + '/t/' + m.thumb_filename + '?key=' + key
                 : '/thumbs/' + m.thumb_filename;
             return {
                 filename: m.filename,
                 thumb_url: thumbUrl,
-                full_url: '/' + orgId + '/' + eventId + '/m/' + m.filename + '?key=' + key,
+                full_url: '/' + eventId + '/m/' + m.filename + '?key=' + key,
                 width: m.width || 800,
                 height: m.height || 600
             };
@@ -106,13 +107,13 @@
             return;
         }
 
-        fetch('/api/events/{{ org_id }}/{{ event_id }}/delete', {
+        fetch('/api/events/{{ event_id }}/delete', {
             method: 'POST'
         })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    window.location.href = '/';
+                    window.location.href = '{% if org_id %}{{ url_for("org_page", org_id=org_id) }}{% else %}/{% endif %}';
                 } else {
                     alert('Failed to delete event: ' + (data.error || 'Unknown error'));
                 }
@@ -128,7 +129,7 @@
         const formData = new FormData();
         formData.append('filename', filename);
 
-        fetch(`/api/${orgId}/${eventId}/delete`, {
+        fetch(`/api/${eventId}/delete`, {
             method: 'POST',
             body: formData
         }).then(res => res.json()).then(data => {
@@ -148,23 +149,22 @@
     {% endif %}
 
     document.addEventListener('DOMContentLoaded', function () {
-        let page = 2; // Start from page 2 since page 1 is server-rendered
+        let page = 2;
         let isLoading = false;
         let hasMore = {{ 'true' if media_list|length >= 30 else 'false' }};
         const sentinel = document.getElementById('scroll-sentinel');
         const loader = document.getElementById('loading');
         const grid = document.getElementById('gallery-grid');
-        const orgId = "{{ org_id }}";
         const eventId = "{{ event_id }}";
         const key = "{{ key }}";
 
         // Helper to construct URLs
         function getMediaUrl(filename) {
-            return `/${orgId}/${eventId}/m/${filename}?key=${key}`;
+            return `/${eventId}/m/${filename}?key=${key}`;
         }
         function getThumbUrl(item) {
             if (item.thumb_route === 'thumb_file') {
-                return `/${orgId}/${eventId}/t/${item.thumb_filename}?key=${key}`;
+                return `/${eventId}/t/${item.thumb_filename}?key=${key}`;
             } else {
                 return `/thumbs/${item.thumb_filename}`;
             }
@@ -176,16 +176,16 @@
             isLoading = true;
             loader.style.display = 'block';
 
-            fetch(`/api/${orgId}/${eventId}?page=${page}&key=${key}`)
+            fetch(`/api/${eventId}?page=${page}&key=${key}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.media && data.media.length > 0) {
                         const newItems = data.media.map(m => ({
                             filename: m.filename,
                             thumb_url: m.thumb_route === 'thumb_file'
-                                ? `/${orgId}/${eventId}/t/${m.thumb_filename}?key=${key}`
+                                ? `/${eventId}/t/${m.thumb_filename}?key=${key}`
                                 : `/thumbs/${m.thumb_filename}`,
-                            full_url: `/${orgId}/${eventId}/m/${m.filename}?key=${key}`,
+                            full_url: `/${eventId}/m/${m.filename}?key=${key}`,
                             width: m.width || 800,
                             height: m.height || 600
                         }));

@@ -6,14 +6,14 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-1">
                 <li class="breadcrumb-item"><a href="{{ url_for('root') }}">Events</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('event_page', org_id=org_id, event_id=event_id) }}">{{ event.name
+                <li class="breadcrumb-item"><a href="{{ url_for('event_page', event_id=event_id) }}">{{ event.name
                         }}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Upload</li>
             </ol>
         </nav>
         <h1 class="h2 mb-0">Upload Media</h1>
     </div>
-    <a href="{{ url_for('event_page', org_id=org_id, event_id=event_id) }}" class="btn btn-outline-secondary">Back to Gallery</a>
+    <a href="{{ url_for('event_page', event_id=event_id) }}" class="btn btn-outline-secondary">Back to Gallery</a>
 </div>
 
 <div class="card shadow-sm border-0 mb-4">
@@ -83,7 +83,6 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const uploadList = document.getElementById('upload-list');
-    const orgId = "{{ org_id }}";
     const eventId = "{{ event_id }}";
 
     dropZone.addEventListener('dragover', (e) => {
@@ -187,7 +186,7 @@
             addRetryBtn(row, file);
         };
 
-        xhr.open('POST', `/api/${orgId}/${eventId}/upload`, true);
+        xhr.open('POST', `/api/${eventId}/upload`, true);
         xhr.send(formData);
     }
 

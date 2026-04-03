@@ -89,7 +89,6 @@
     const errorMsg = document.getElementById('error-message');
     const dateInput = document.getElementById('date');
     const isEdit = {{ 'true' if event else 'false' }};
-    const orgId = "{{ org_id if event else '' }}";
     const eventId = "{{ event_id if event else '' }}";
 
     // Initialize date if editing
@@ -131,7 +130,7 @@
             }
         }
 
-        const url = isEdit ? `/api/events/${orgId}/${eventId}/update` : '/api/events/create';
+        const url = isEdit ? `/api/events/${eventId}/update` : '/api/events/create';
 
         fetch(url, {
             method: 'POST',
@@ -141,9 +140,9 @@
             .then(data => {
                 if (data.success) {
                     if (isEdit) {
-                        window.location.href = `/${orgId}/${eventId}`;
+                        window.location.href = `/${eventId}`;
                     } else {
-                        window.location.href = `/${data.org_id}/${data.event_id}`;
+                        window.location.href = `/${data.event_id}`;
                     }
                 } else {
                     errorMsg.textContent = data.error || 'An error occurred';

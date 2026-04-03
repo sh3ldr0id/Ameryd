@@ -17,9 +17,9 @@
     {% for e_id, ev in events %}
     <div class="col-6 col-md-4 col-lg-3 mb-2 events-col">
         <div class="card border-0 text-white bg-dark">
-            <a href="{{ url_for('event_page', org_id=org_id, event_id=e_id) }}" class="text-white">
+            <a href="{{ url_for('event_page', event_id=e_id) }}" class="text-white">
                 <div class="position-relative">
-                    <img src="{{ url_for('event_thumb', org_id=org_id, event_id=e_id) }}" class="card-img rounded"
+                    <img src="{{ url_for('event_thumb', event_id=e_id) }}" class="card-img rounded"
                         alt="{{ ev.name }}" loading="lazy">
                     <div class="event-overlay rounded-bottom">
                         <h5 class="card-title mb-1">{{ ev.name }}</h5>
