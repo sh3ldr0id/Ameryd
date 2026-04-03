@@ -1,0 +1,3 @@
+flask
+Pillow
+opencv-python-headless

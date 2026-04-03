@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }}{% endblock %}
+{% block og_title %}{{ event.name }}{% endblock %}
+{% block og_description %}{{ event.description }}{% endblock %}
+{% block og_image %}{{ url_for('event_thumb', org_id=org_id, event_id=event_id, _external=True) }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>{{ event.name }}</h1>
+    <div class="d-flex gap-2">
+        {% if session.get('is_admin') %}
+        <a href="{{ url_for('upload_page', org_id=org_id, event_id=event_id) }}" class="btn btn-primary">Add Media</a>
+        <a href="{{ url_for('edit_event_page', org_id=org_id, event_id=event_id) }}" class="btn btn-outline-primary">Edit Event</a>
+        <button class="btn btn-outline-danger" onclick="deleteEvent()">Delete Event</button>
+        {% endif %}
+        <a href="{{ url_for('org_page', org_id=org_id) }}" class="btn btn-outline-secondary">&larr; Back to Organization</a>
+    </div>
+</div>
+<p class="text-muted"><em>{{ event.date }}</em> – {{ event.description }}</p>
+
+{% if locked %}
+<!-- Show password form -->
+<div class="alert alert-warning">This gallery is protected. Enter the key to unlock.</div>
+<form method="get" class="mb-3">
+    <div class="mb-2" style="max-width: 300px;">
+        <input type="password" name="key" class="form-control" placeholder="Enter key" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Unlock</button>
+</form>
+{% else %}
+<!-- Show media gallery -->
+<div id="gallery-grid" class="row g-2" data-is-admin="{{ 'true' if session.get('is_admin') else 'false' }}">
+    {% for media in media_list %}
+    <div class="col-6 col-md-4 col-lg-3 mb-2 gallery-col" data-name="{{ media.filename }}">
+        <div class="gallery-item-container position-relative">
+            <a href="{{ url_for(media.thumb_route, org_id=org_id, event_id=event_id, filename=media.filename, key=key) if media.thumb_route == 'media_file' else url_for('media_file', org_id=org_id, event_id=event_id, filename=media.filename, key=key) }}"
+                class="gallery-item-link" target="_blank">
+                <div class="filename-overlay">{{ media.filename }}</div>
+                {% if media.thumb_route == 'thumb_file' %}
+                <img src="{{ url_for('thumb_file', org_id=org_id, event_id=event_id, filename=media.thumb_filename, key=key) }}"
+                    class="img-fluid rounded" alt="Media" loading="lazy">
+                {% else %}
+                <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
+                    alt="Generic Media" loading="lazy">
+                {% endif %}
+            </a>
+            {% if session.get('is_admin') %}
+            <button class="btn btn-danger btn-sm delete-btn position-absolute top-0 end-0 m-1"
+                onclick="deleteMedia(this, '{{ media.filename }}')"
+                style="z-index: 10; padding: 0.1rem 0.3rem; opacity: 0.8;">&times;</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Dynamic Gallery Container -->
+<div id="dynamic-gallery-container" style="display: none; min-height: 100vh;"></div>
+
+<!-- Loader & Sentinel -->
+<div id="loading" class="text-center py-4" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+<div id="scroll-sentinel"></div>
+
+{% endif %}
+
+<script id="dynamic-data" type="application/json">
+{% if not locked %}
+{{ media_list | tojson }}
+{% else %}
+[]
+{% endif %}
+</script>
+<script>
+    // Parse data for Dynamic Gallery View
+    (function () {
+        var raw = JSON.parse(document.getElementById('dynamic-data').textContent || '[]');
+        var orgId = "{{ org_id }}";
+        var eventId = "{{ event_id }}";
+        var key = "{{ key }}";
+        window._dynamicOrgId = orgId; window._dynamicEventId = eventId;
+        window._dynamicKey = key;
+        window._dynamicInitialData = raw.map(function (m) {
+            var thumbUrl = m.thumb_route === 'thumb_file'
+                ? '/' + orgId + '/' + eventId + '/t/' + m.thumb_filename + '?key=' + key
+                : '/thumbs/' + m.thumb_filename;
+            return {
+                filename: m.filename,
+                thumb_url: thumbUrl,
+                full_url: '/' + orgId + '/' + eventId + '/m/' + m.filename + '?key=' + key,
+                width: m.width || 800,
+                height: m.height || 600
+            };
+        });
+        // Centralized media state for all views
+        window._allLoadedMedia = [...window._dynamicInitialData];
+    })();
+</script>
+
+<script>
+    {% if session.get('is_admin') %}
+    function deleteEvent() {
+        if (!confirm('Are you sure you want to delete this event? This will permanently delete all media files and cannot be undone.')) {
+            return;
+        }
+
+        fetch('/api/events/{{ org_id }}/{{ event_id }}/delete', {
+            method: 'POST'
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    alert('Failed to delete event: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err.message);
+            });
+    }
+
+    function deleteMedia(btn, filename) {
+        if (!confirm(`Delete ${filename}?`)) return;
+
+        const formData = new FormData();
+        formData.append('filename', filename);
+
+        fetch(`/api/${orgId}/${eventId}/delete`, {
+            method: 'POST',
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                const col = btn.closest('.gallery-col');
+                if (window.msnry) {
+                    window.msnry.remove(col);
+                    window.msnry.layout();
+                } else {
+                    col.remove();
+                }
+            } else {
+                alert("Deletion failed: " + data.error);
+            }
+        });
+    }
+    {% endif %}
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let page = 2; // Start from page 2 since page 1 is server-rendered
+        let isLoading = false;
+        let hasMore = {{ 'true' if media_list|length >= 30 else 'false' }};
+        const sentinel = document.getElementById('scroll-sentinel');
+        const loader = document.getElementById('loading');
+        const grid = document.getElementById('gallery-grid');
+        const orgId = "{{ org_id }}";
+        const eventId = "{{ event_id }}";
+        const key = "{{ key }}";
+
+        // Helper to construct URLs
+        function getMediaUrl(filename) {
+            return `/${orgId}/${eventId}/m/${filename}?key=${key}`;
+        }
+        function getThumbUrl(item) {
+            if (item.thumb_route === 'thumb_file') {
+                return `/${orgId}/${eventId}/t/${item.thumb_filename}?key=${key}`;
+            } else {
+                return `/thumbs/${item.thumb_filename}`;
+            }
+        }
+
+        // --- Core load function ---
+        function loadMore() {
+            if (isLoading || !hasMore) return;
+            isLoading = true;
+            loader.style.display = 'block';
+
+            fetch(`/api/${orgId}/${eventId}?page=${page}&key=${key}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.media && data.media.length > 0) {
+                        const newItems = data.media.map(m => ({
+                            filename: m.filename,
+                            thumb_url: m.thumb_route === 'thumb_file'
+                                ? `/${orgId}/${eventId}/t/${m.thumb_filename}?key=${key}`
+                                : `/thumbs/${m.thumb_filename}`,
+                            full_url: `/${orgId}/${eventId}/m/${m.filename}?key=${key}`,
+                            width: m.width || 800,
+                            height: m.height || 600
+                        }));
+
+                        // Update global state for view-switching sync
+                        if (window._allLoadedMedia) {
+                            window._allLoadedMedia.push(...newItems);
+                        }
+
+                        if (window._viewMode === 'dynamic') {
+                            if (window._dynamicGallery) {
+                                window._dynamicGallery.addItems(newItems);
+                            }
+                        } else {
+                            // Grid / Masonry / List path
+                            const newElements = [];
+                            const isAdmin = grid.dataset.isAdmin === 'true';
+
+                            data.media.forEach(item => {
+                                const col = document.createElement('div');
+                                col.className = 'col-6 col-md-4 col-lg-3 mb-2 gallery-col';
+                                col.dataset.name = item.filename;
+
+                                const container = document.createElement('div');
+                                container.className = 'gallery-item-container position-relative';
+
+                                const link = document.createElement('a');
+                                link.href = getMediaUrl(item.filename);
+                                link.target = '_blank';
+                                link.className = 'gallery-item-link';
+
+                                const overlay = document.createElement('div');
+                                overlay.className = 'filename-overlay';
+                                overlay.textContent = item.filename;
+
+                                const img = document.createElement('img');
+                                img.src = getThumbUrl(item);
+                                img.className = 'img-fluid rounded';
+                                img.alt = 'Media';
+                                img.loading = 'lazy';
+
+                                link.appendChild(overlay);
+                                link.appendChild(img);
+                                container.appendChild(link);
+
+                                if (isAdmin) {
+                                    const delBtn = document.createElement('button');
+                                    delBtn.className = 'btn btn-danger btn-sm delete-btn position-absolute top-0 end-0 m-1';
+                                    delBtn.innerHTML = '&times;';
+                                    delBtn.style.zIndex = '10';
+                                    delBtn.style.padding = '0.1rem 0.3rem';
+                                    delBtn.style.opacity = '0.8';
+                                    delBtn.onclick = function () { deleteMedia(this, item.filename); };
+                                    container.appendChild(delBtn);
+                                }
+
+                                col.appendChild(container);
+                                grid.appendChild(col);
+                                newElements.push(col);
+                            });
+
+                            // Re-apply column classes via event
+                            const colSelect = document.getElementById('col-count-select');
+                            if (colSelect) colSelect.dispatchEvent(new Event('change'));
+
+                            // Masonry integration
+                            if (window.Masonry) {
+                                const msnry = Masonry.data(grid);
+                                if (msnry) {
+                                    msnry.appended(newElements);
+                                    if (window.imagesLoaded) {
+                                        imagesLoaded(newElements).on('progress', () => msnry.layout());
+                                    } else {
+                                        msnry.layout();
+                                    }
+                                }
+                            }
+                        }
+
+                        if (data.next_page) {
+                            page = data.next_page;
+                        } else {
+                            hasMore = false;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                })
+                .catch(err => console.error('Error loading more items:', err))
+                .finally(() => {
+                    isLoading = false;
+                    loader.style.display = 'none';
+
+                    if (!hasMore) {
+                        // Reached the end
+                        observer.disconnect();
+                        const endMsg = document.createElement('div');
+                        endMsg.className = 'text-center text-muted py-5';
+                        endMsg.innerHTML = '<hr style="width:50%; margin: 2rem auto;"> End of Gallery';
+                        if (window._viewMode === 'dynamic') {
+                            const dynContainer = document.getElementById('dynamic-gallery-container');
+                            if (dynContainer) dynContainer.appendChild(endMsg);
+                        } else {
+                            if (sentinel && sentinel.parentNode) {
+                                sentinel.parentNode.insertBefore(endMsg, sentinel);
+                            }
+                        }
+                    } else {
+                        // Keep filling if screen still has room
+                        fillScreen();
+                    }
+                });
+        }
+
+        // --- Fill screen loop: keep loading until sentinel is off-screen ---
+        function fillScreen() {
+            if (isLoading || !hasMore) return;
+            if (window._viewMode === 'dynamic') return; // Dynamic handles its own scroll
+            if (!sentinel) return;
+            const rect = sentinel.getBoundingClientRect();
+            if (rect.top <= window.innerHeight + 200) {
+                // Sentinel is in or near the viewport — load more
+                loadMore();
+            }
+        }
+
+        // --- IntersectionObserver with generous rootMargin ---
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore && !isLoading) {
+                loadMore();
+            }
+        }, { rootMargin: '400px' }); // Start loading 400px before sentinel is visible
+
+        if (sentinel) observer.observe(sentinel);
+
+        // --- Scroll listener for dynamic view ---
+        window.addEventListener('scroll', () => {
+            if (window._viewMode === 'dynamic' && !isLoading && hasMore) {
+                const scrollY = window.scrollY || window.pageYOffset;
+                const vpH = window.innerHeight;
+                const docH = document.documentElement.scrollHeight;
+                if (scrollY + vpH > docH - 1200) {
+                    loadMore();
+                }
+            }
+        }, { passive: true });
+
+        // --- Initial fill on page load ---
+        // Give the DOM a tick to settle, then try to fill any remaining screen space
+        setTimeout(fillScreen, 100);
+    });
+</script>
+{% endblock %}

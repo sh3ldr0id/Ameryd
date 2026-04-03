@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <h1>{{ org.name }}</h1>
+        {% if session.get('is_admin') %}
+        <a href="{{ url_for('root') }}" class="btn btn-outline-secondary btn-sm">&larr; Back to Orgs</a>
+        <a href="{{ url_for('edit_org_page', org_id=org_id) }}" class="btn btn-outline-primary btn-sm">Edit Organization</a>
+        {% endif %}
+    </div>
+    {% if session.get('is_admin') %}
+    <a href="{{ url_for('create_event_page', org_id=org_id) }}" class="btn btn-primary">+ Create Event</a>
+    {% endif %}
+</div>
+<div class="row g-2" id="events-grid">
+    {% for e_id, ev in events %}
+    <div class="col-6 col-md-4 col-lg-3 mb-2 events-col">
+        <div class="card border-0 text-white bg-dark">
+            <a href="{{ url_for('event_page', org_id=org_id, event_id=e_id) }}" class="text-white">
+                <div class="position-relative">
+                    <img src="{{ url_for('event_thumb', org_id=org_id, event_id=e_id) }}" class="card-img rounded"
+                        alt="{{ ev.name }}" loading="lazy">
+                    <div class="event-overlay rounded-bottom">
+                        <h5 class="card-title mb-1">{{ ev.name }}</h5>
+                        <p class="card-text small mb-1 text-truncate">{{ ev.description }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-white-50">{{ ev.date }}</small>
+                            <div class="d-flex gap-1">
+                                {% if ev.hidden %}
+                                <span class="badge bg-warning text-dark">Hidden</span>
+                                {% endif %}
+                                {% if ev.password %}
+                                <span class="badge bg-secondary">Locked</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <p>No events available in this organization.</p>
+    {% endfor %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var grid = document.querySelector('#events-grid');
+        if (grid) {
+            imagesLoaded(grid, function () {
+                new Masonry(grid, {
+                    itemSelector: '.events-col',
+                    percentPosition: true
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

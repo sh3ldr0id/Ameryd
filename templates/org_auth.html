@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Organization Access{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <h3 class="mb-4">Organization Protected</h3>
+        <p class="text-muted">Enter the password for organization {{ org_id }} to view its events</p>
+        <form method="POST">
+            <div class="input-group mb-3">
+                <input type="password" class="form-control" name="password" placeholder="Password" required>
+                <button class="btn btn-primary" type="submit">Unlock</button>
+            </div>
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

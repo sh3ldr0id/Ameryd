@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Event' if event else 'Create Event' }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ 'Edit Event' if event else 'Create Event' }}</h1>
+            {% if org_id %}
+            <a href="{{ url_for('org_page', org_id=org_id) }}" class="btn btn-outline-secondary">&larr; Back to Organization</a>
+            {% else %}
+            <a href="{{ url_for('root') }}" class="btn btn-outline-secondary">&larr; Back</a>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="event-form">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Event Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name"
+                            value="{{ event.name if event else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                        <div class="form-text">Select the event date (will be saved in dd-mm-yyyy format).</div>
+                    </div>
+
+                    {% if not event %}
+                    <div class="mb-3">
+                        <label for="org_id" class="form-label">Organization <span class="text-danger">*</span></label>
+                        <select class="form-control" id="org_id" name="org_id" required>
+                            {% for oid in orgs %}
+                            <option value="{{ oid }}" {% if oid == org_id %}selected{% endif %}>{{ oid }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Choose the underlying organization for this event</div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description <span
+                                class="text-danger">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                            required>{{ event.description if event else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password (Optional)</label>
+                        <input type="text" class="form-control" id="password" name="password"
+                            value="{{ event.password if event and event.password else '' }}"
+                            placeholder="Leave empty for public access">
+                        <div class="form-text">Set a password to restrict access to this event</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="thumbnail" class="form-label">Event Thumbnail (Optional)</label>
+                        <input type="file" class="form-control" id="thumbnail" name="thumbnail" accept="image/*">
+                        <div class="form-text">Upload an image to use as the gallery cover. Will be converted to WebP.
+                        </div>
+                    </div>
+
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="hidden" name="hidden" {{ 'checked' if event
+                            and event.hidden else '' }}>
+                        <label class="form-check-label" for="hidden">Hidden Event</label>
+                        <div class="form-text">Hidden events won't appear on the main page but are accessible via direct
+                            link.</div>
+                    </div>
+
+                    <div class="alert alert-danger d-none" id="error-message"></div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                            {{ 'Update Event' if event else 'Create Event' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('event-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-message');
+    const dateInput = document.getElementById('date');
+    const isEdit = {{ 'true' if event else 'false' }};
+    const orgId = "{{ org_id if event else '' }}";
+    const eventId = "{{ event_id if event else '' }}";
+
+    // Initialize date if editing
+    if (isEdit) {
+        const rawDate = "{{ event.date if event else '' }}"; // Expected dd-mm-yyyy
+        if (rawDate && rawDate.includes('-')) {
+            const parts = rawDate.split('-');
+            if (parts.length === 3) {
+                // Convert dd-mm-yyyy to yyyy-mm-dd for the picker
+                // Parts are [dd, mm, yyyy] or [yyyy, mm, dd]? 
+                // Currently in events.json it is yyyy-mm-dd. 
+                // But the user WANTS dd-mm-yyyy.
+                // If it's currently yyyy-mm-dd, parts are [yyyy, mm, dd].
+                if (parts[0].length === 4) {
+                    dateInput.value = rawDate;
+                } else {
+                    dateInput.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+        }
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.textContent = isEdit ? 'Updating...' : 'Creating...';
+        errorMsg.classList.add('d-none');
+
+        const formData = new FormData(form);
+
+        // Convert yyyy-mm-dd to dd-mm-yyyy before sending
+        const pickerDate = formData.get('date');
+        if (pickerDate) {
+            const dp = pickerDate.split('-');
+            if (dp.length === 3) {
+                formData.set('date', `${dp[2]}-${dp[1]}-${dp[0]}`);
+            }
+        }
+
+        const url = isEdit ? `/api/events/${orgId}/${eventId}/update` : '/api/events/create';
+
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (isEdit) {
+                        window.location.href = `/${orgId}/${eventId}`;
+                    } else {
+                        window.location.href = `/${data.org_id}/${data.event_id}`;
+                    }
+                } else {
+                    errorMsg.textContent = data.error || 'An error occurred';
+                    errorMsg.classList.remove('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
+                }
+            })
+            .catch(err => {
+                errorMsg.textContent = 'Network error: ' + err.message;
+                errorMsg.classList.remove('d-none');
+                submitBtn.disabled = false;
+                submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
+            });
+    });
+</script>
+{% endblock %}
