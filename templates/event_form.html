@@ -55,8 +55,8 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="thumbnail" class="form-label">Event Thumbnail (Optional)</label>
-                        <input type="file" class="form-control" id="thumbnail" name="thumbnail" accept="image/*">
+                        <label for="thumbnail" class="form-label">Event Thumbnail {% if not event %}<span class="text-danger">*</span>{% else %}(Optional){% endif %}</label>
+                        <input type="file" class="form-control" id="thumbnail" name="thumbnail" accept="image/*" {% if not event %}required{% endif %}>
                         <div class="form-text">Upload an image to use as the gallery cover. Will be converted to WebP.
                         </div>
                     </div>
@@ -77,6 +77,12 @@
                             {{ 'Update Event' if event else 'Create Event' }}
                         </button>
                     </div>
+
+                    {% if event %}
+                    <div class="mt-4 pt-3 border-top">
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="delete-btn">Delete Event</button>
+                    </div>
+                    {% endif %}
                 </form>
             </div>
         </div>
@@ -86,6 +92,7 @@
 <script>
     const form = document.getElementById('event-form');
     const submitBtn = document.getElementById('submit-btn');
+    const deleteBtn = document.getElementById('delete-btn');
     const errorMsg = document.getElementById('error-message');
     const dateInput = document.getElementById('date');
     const isEdit = {{ 'true' if event else 'false' }};
@@ -158,5 +165,35 @@
                 submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
             });
     });
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to delete this event? This will permanently delete all media files and cannot be undone.')) {
+                deleteBtn.disabled = true;
+                
+                fetch(`/api/events/${eventId}/delete`, {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const orgIdStr = "{{ org_id if org_id else '' }}";
+                        if (orgIdStr) {
+                             window.location.href = `/${orgIdStr}`;
+                        } else {
+                             window.location.href = '/';
+                        }
+                    } else {
+                        alert(data.error || 'Failed to delete event');
+                        deleteBtn.disabled = false;
+                    }
+                })
+                .catch(err => {
+                    alert('Network error during deletion');
+                    deleteBtn.disabled = false;
+                });
+            }
+        });
+    }
 </script>
 {% endblock %}

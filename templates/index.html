@@ -5,13 +5,15 @@
     <div class="col-md-6 text-center">
         <h2 class="mb-4">Welcome to Ameryd</h2>
         <p class="mb-4 text-muted">Enter an ID to begin</p>
-        <form method="POST" action="{{ url_for('resolve_id') }}" class="mb-5">
-            <div class="input-group mb-3">
-                <input type="text" class="form-control form-control-lg text-center" name="id_input" placeholder="ID" required autocomplete="off" autofocus>
-                <button class="btn btn-primary btn-lg" type="submit">Enter</button>
+        <form method="POST" action="{{ url_for('resolve_id') }}" class="id-input-form mb-5">
+            <div class="id-input-wrapper">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" class="id-input" name="id_input" placeholder="ID" required autocomplete="off" autofocus>
+                <button class="id-submit-btn" type="submit" aria-label="Submit">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </button>
             </div>
             {% if error %}
-            <div class="alert alert-danger" role="alert">
+            <div class="alert alert-danger mt-3" role="alert">
                 {{ error }}
             </div>
             {% endif %}

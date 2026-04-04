@@ -57,6 +57,20 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_required_api(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('is_admin'):
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_event_dirs(ev):
+    event_folder = os.path.join(DATA_DIR, ev.get('folder', ''))
+    media_dir = os.path.join(event_folder, 'Media')
+    thumb_dir = os.path.join(event_folder, 'Thumbnail')
+    return event_folder, media_dir, thumb_dir
+
 def generate_unique_id(length, existing_ids):
     import random, string
     new_id = ''.join(random.choices(string.digits, k=length))
@@ -227,17 +241,18 @@ def root():
 @app.route('/resolve_id', methods=['POST'])
 def resolve_id():
     id_val = request.form.get('id_input', '').strip()
+    data = load_events()
+    organizations = data.get('organizations', {})
+    
     if len(id_val) == 4 and id_val.isdigit():
         return redirect(url_for('org_page', org_id=id_val))
     elif len(id_val) == 6 and id_val.isdigit():
-        data = load_events()
         ev = data.get('events', {}).get(id_val)
         if ev:
             return redirect(url_for('event_page', event_id=id_val))
-        data = load_events()
-        return render_template('index.html', error="Event not found", organizations=data.get('organizations', {}))
-    data = load_events()
-    return render_template('index.html', error="Invalid ID (4 digits = Org, 6 digits = Event)", organizations=data.get('organizations', {}))
+        return render_template('index.html', error="Event not found", organizations=organizations)
+        
+    return render_template('index.html', error="Invalid ID (4 digits = Org, 6 digits = Event)", organizations=organizations)
 
 @app.route('/authenticate', methods=['GET', 'POST'])
 def login():
@@ -303,10 +318,8 @@ def edit_org_page(org_id):
     return render_template('org_form.html', org=org, org_id=org_id)
 
 @app.route('/api/organizations/<org_id:org_id>/update', methods=['POST'])
+@admin_required_api
 def api_update_organization(org_id):
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-        
     data = load_events()
     org = data.get('organizations', {}).get(org_id)
     if not org:
@@ -333,10 +346,8 @@ def api_update_organization(org_id):
     return jsonify({'success': True})
 
 @app.route('/api/organizations/<org_id:org_id>/delete', methods=['POST'])
+@admin_required_api
 def api_delete_organization(org_id):
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-        
     data = load_events()
     if org_id not in data.get('organizations', {}):
         return jsonify({'error': 'Organization not found'}), 404
@@ -433,10 +444,8 @@ def upload_page(event_id):
     return render_template('upload.html', event=ev, org_id=org_id, event_id=event_id)
 
 @app.route('/api/<event_id:event_id>/upload', methods=['POST'])
+@admin_required_api
 def api_upload(event_id):
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
     data = load_events()
     ev = data.get('events', {}).get(event_id)
     if not ev:
@@ -450,9 +459,7 @@ def api_upload(event_id):
         return jsonify({'error': 'No selected file'}), 400
         
     filename = secure_filename(file.filename)
-    event_folder = os.path.join(DATA_DIR, ev['folder'])
-    media_dir = os.path.join(event_folder, 'Media')
-    thumb_dir = os.path.join(event_folder, 'Thumbnail')
+    event_folder, media_dir, thumb_dir = get_event_dirs(ev)
     
     os.makedirs(media_dir, exist_ok=True)
     os.makedirs(thumb_dir, exist_ok=True)
@@ -468,11 +475,9 @@ def api_upload(event_id):
     return jsonify({'success': True, 'filename': filename, 'thumb_url': thumb_url})
 
 @app.route('/api/<event_id:event_id>/delete', methods=['POST'])
+@admin_required_api
 def api_delete(event_id):
     """Delete a single media file from an event."""
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-        
     data = load_events()
     ev = data.get('events', {}).get(event_id)
     if not ev:
@@ -483,9 +488,7 @@ def api_delete(event_id):
         return jsonify({'error': 'No filename provided'}), 400
     
     filename = secure_filename(filename)
-    event_folder = os.path.join(DATA_DIR, ev['folder'])
-    media_dir = os.path.join(event_folder, 'Media')
-    thumb_dir = os.path.join(event_folder, 'Thumbnail')
+    event_folder, media_dir, thumb_dir = get_event_dirs(ev)
     
     media_path = os.path.join(media_dir, filename)
     thumb_path = os.path.join(thumb_dir, filename + '.webp')
@@ -496,10 +499,8 @@ def api_delete(event_id):
     return jsonify({'success': True})
 
 @app.route('/api/events/create', methods=['POST'])
+@admin_required_api
 def api_create_event():
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
     name = request.form.get('name', '').strip()
     date = request.form.get('date', '').strip()
     description = request.form.get('description', '').strip()
@@ -508,6 +509,9 @@ def api_create_event():
     
     if not name or not date or not description or not org_id:
         return jsonify({'error': 'Missing required fields'}), 400
+        
+    if 'thumbnail' not in request.files or request.files['thumbnail'].filename == '':
+        return jsonify({'error': 'Event thumbnail is required'}), 400
         
     data = load_events()
     if org_id not in data.get('organizations', {}):
@@ -553,10 +557,8 @@ def api_create_event():
     return jsonify({'success': True, 'event_id': event_id})
 
 @app.route('/api/events/<event_id:event_id>/update', methods=['POST'])
+@admin_required_api
 def api_update_event(event_id):
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-        
     data = load_events()
     ev = data.get('events', {}).get(event_id)
     if not ev:
@@ -600,11 +602,9 @@ def api_update_event(event_id):
     return jsonify({'success': True})
 
 @app.route('/api/events/<event_id:event_id>/delete', methods=['POST'])
+@admin_required_api
 def api_delete_event(event_id):
     """Delete an entire event and all its media."""
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-        
     data = load_events()
     ev = data.get('events', {}).get(event_id)
     if not ev:
@@ -625,10 +625,8 @@ def api_delete_event(event_id):
     return jsonify({'success': True})
 
 @app.route('/api/organizations/create', methods=['POST'])
+@admin_required_api
 def api_create_organization():
-    if not session.get('is_admin'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
     name = request.form.get('name', '').strip()
     password = request.form.get('password', '').strip()
     description = request.form.get('description', '').strip()

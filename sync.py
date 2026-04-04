@@ -123,23 +123,3 @@ def sync_events():
 
 if __name__ == "__main__":
     sync_events()
-        
-        # 3b. Cleanup orphaned thumbnails
-        if os.path.isdir(thumb_dir):
-            for thumb_fname in os.listdir(thumb_dir):
-                base, ext = os.path.splitext(thumb_fname)
-                if ext.lower() == '.webp':
-                    # Check if this thumbnail corresponds to an existing media file
-                    # Note: We assumed thumb name is base + .webp. 
-                    # If valid_media_bases contains 'base', keep it.
-                    if base not in valid_media_bases:
-                        print(f"Removing orphaned thumbnail: {thumb_fname} in {folder_name}")
-                        try:
-                            os.remove(os.path.join(thumb_dir, thumb_fname))
-                        except OSError as e:
-                            print(f"Error removing {thumb_fname}: {e}")
-
-    print("Sync complete.")
-
-if __name__ == "__main__":
-    sync_events()
