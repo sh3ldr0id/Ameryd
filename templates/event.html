@@ -33,11 +33,11 @@
     {% for media in media_list %}
     <div class="col-6 col-md-4 col-lg-3 mb-2 gallery-col" data-name="{{ media.filename }}">
         <div class="gallery-item-container position-relative">
-            <a href="{{ url_for('media_file', event_id=event_id, filename=media.filename, key=key) }}"
+            <a href="{{ url_for('media_file', event_id=event_id, filename=media.filename) }}{% if key %}?key={{ key }}{% endif %}"
                 class="gallery-item-link" target="_blank">
                 <div class="filename-overlay">{{ media.filename }}</div>
                 {% if media.thumb_route == 'thumb_file' %}
-                <img src="{{ url_for('thumb_file', event_id=event_id, filename=media.thumb_filename, key=key) }}"
+                <img src="{{ url_for('thumb_file', event_id=event_id, filename=media.thumb_filename) }}{% if key %}?key={{ key }}{% endif %}"
                     class="img-fluid rounded" alt="Media" loading="lazy">
                 {% else %}
                 <img src="{{ url_for('global_thumb', filename=media.thumb_filename) }}" class="img-fluid rounded"
@@ -82,14 +82,15 @@
         var key = "{{ key }}";
         window._dynamicEventId = eventId;
         window._dynamicKey = key;
+        var keyParam = key ? '?key=' + key : '';
         window._dynamicInitialData = raw.map(function (m) {
             var thumbUrl = m.thumb_route === 'thumb_file'
-                ? '/' + eventId + '/t/' + m.thumb_filename + '?key=' + key
+                ? '/' + eventId + '/t/' + m.thumb_filename + keyParam
                 : '/thumbs/' + m.thumb_filename;
             return {
                 filename: m.filename,
                 thumb_url: thumbUrl,
-                full_url: '/' + eventId + '/m/' + m.filename + '?key=' + key,
+                full_url: '/' + eventId + '/m/' + m.filename + keyParam,
                 width: m.width || 800,
                 height: m.height || 600
             };
@@ -135,14 +136,15 @@
         const grid = document.getElementById('gallery-grid');
         const eventId = "{{ event_id }}";
         const key = "{{ key }}";
+        const keyParam = key ? '?key=' + key : '';
 
         // Helper to construct URLs
         function getMediaUrl(filename) {
-            return `/${eventId}/m/${filename}?key=${key}`;
+            return `/${eventId}/m/${filename}${keyParam}`;
         }
         function getThumbUrl(item) {
             if (item.thumb_route === 'thumb_file') {
-                return `/${eventId}/t/${item.thumb_filename}?key=${key}`;
+                return `/${eventId}/t/${item.thumb_filename}${keyParam}`;
             } else {
                 return `/thumbs/${item.thumb_filename}`;
             }
@@ -154,16 +156,16 @@
             isLoading = true;
             loader.style.display = 'block';
 
-            fetch(`/api/${eventId}?page=${page}&key=${key}`)
+            fetch(`/api/${eventId}?page=${page}${key ? '&key=' + key : ''}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.media && data.media.length > 0) {
                         const newItems = data.media.map(m => ({
                             filename: m.filename,
                             thumb_url: m.thumb_route === 'thumb_file'
-                                ? `/${eventId}/t/${m.thumb_filename}?key=${key}`
+                                ? `/${eventId}/t/${m.thumb_filename}${keyParam}`
                                 : `/thumbs/${m.thumb_filename}`,
-                            full_url: `/${eventId}/m/${m.filename}?key=${key}`,
+                            full_url: `/${eventId}/m/${m.filename}${keyParam}`,
                             width: m.width || 800,
                             height: m.height || 600
                         }));
