@@ -31,7 +31,7 @@ GLOBAL_THUMB_DIR = os.path.join(DATA_DIR, 'Thumbnail')
 MEDIA_PAGE_SIZE = 30
 
 # Auth Configuration
-# os.environ["ADMIN_PASSWORD"] = "admin"
+os.environ["ADMIN_PASSWORD"] = "test"
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
