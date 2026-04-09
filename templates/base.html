@@ -10,8 +10,10 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="{% block og_title %}Ameryd{% endblock %}">
   <meta property="og:description" content="{% block og_description %}Ameryd - Content Delivery Manager{% endblock %}">
+  {% block og_image_meta %}
   <meta property="og:image"
     content="{% block og_image %}{{ url_for('static', filename='img/og-image.jpg', _external=True) if logo_exists else '' }}{% endblock %}">
+  {% endblock %}
 
   {% block head %}{% endblock %}
 
