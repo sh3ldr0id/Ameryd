@@ -108,7 +108,7 @@
         const formData = new FormData();
         formData.append('filename', filename);
 
-        fetch(`/api/${eventId}/delete`, {
+        fetch(`/api/{{ event_id }}/delete`, {
             method: 'POST',
             body: formData
         }).then(res => res.json()).then(data => {
