@@ -22,6 +22,14 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="custom_id" class="form-label">Custom Event ID (Optional)</label>
+                        <input type="text" class="form-control" id="custom_id" name="custom_id"
+                            value="{{ event_id if event_id else '' }}"
+                            pattern="\d{6}" maxlength="6" minlength="6" title="Event ID must be exactly 6 digits">
+                        <div class="form-text">Leave blank to auto-generate. Must be exactly 6 digits.</div>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
                         <input type="date" class="form-control" id="date" name="date" required>
                         <div class="form-text">Select the event date (will be saved in dd-mm-yyyy format).</div>
@@ -126,6 +134,15 @@
         submitBtn.textContent = isEdit ? 'Updating...' : 'Creating...';
         errorMsg.classList.add('d-none');
 
+        const customId = document.getElementById('custom_id').value;
+        if (customId && !/^\d{6}$/.test(customId)) {
+            errorMsg.textContent = 'Event ID must be exactly 6 digits.';
+            errorMsg.classList.remove('d-none');
+            submitBtn.disabled = false;
+            submitBtn.textContent = isEdit ? 'Update Event' : 'Create Event';
+            return;
+        }
+
         const formData = new FormData(form);
 
         // Convert yyyy-mm-dd to dd-mm-yyyy before sending
@@ -146,11 +163,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    if (isEdit) {
-                        window.location.href = `/${eventId}`;
-                    } else {
-                        window.location.href = `/${data.event_id}`;
-                    }
+                    window.location.href = `/${data.event_id}`;
                 } else {
                     errorMsg.textContent = data.error || 'An error occurred';
                     errorMsg.classList.remove('d-none');

@@ -18,6 +18,14 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="custom_id" class="form-label">Custom Organization ID (Optional)</label>
+                        <input type="text" class="form-control" id="custom_id" name="custom_id"
+                            value="{{ org_id if org_id else '' }}"
+                            pattern="\d{4}" maxlength="4" minlength="4" title="Organization ID must be exactly 4 digits">
+                        <div class="form-text">Leave blank to auto-generate. Must be exactly 4 digits.</div>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="password" class="form-label">Password (Optional)</label>
                         <input type="text" class="form-control" id="password" name="password"
                             value="{{ org.password if org and org.password else '' }}"
@@ -65,6 +73,15 @@
         submitBtn.textContent = 'Saving...';
         errorMsg.classList.add('d-none');
 
+        const customId = document.getElementById('custom_id').value;
+        if (customId && !/^\d{4}$/.test(customId)) {
+            errorMsg.textContent = 'Organization ID must be exactly 4 digits.';
+            errorMsg.classList.remove('d-none');
+            submitBtn.disabled = false;
+            submitBtn.textContent = isEdit ? 'Update Organization' : 'Create Organization';
+            return;
+        }
+
         const formData = new FormData(form);
         const url = isEdit ? `/api/organizations/${orgId}/update` : '/api/organizations/create';
 
@@ -75,7 +92,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    window.location.href = isEdit ? `/${orgId}` : `/`;
+                    window.location.href = data.org_id ? `/${data.org_id}` : `/`;
                 } else {
                     errorMsg.textContent = data.error || 'An error occurred';
                     errorMsg.classList.remove('d-none');

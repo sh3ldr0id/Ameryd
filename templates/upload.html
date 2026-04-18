@@ -25,6 +25,12 @@
                 Files</button>
             <p class="text-muted small mt-3">Images (JPG, PNG, WebP, etc.) and Videos (MP4, MOV, etc.)</p>
         </div>
+        <div class="d-flex align-items-center justify-content-center mt-3">
+            <div class="form-check form-switch custom-switch">
+                <input class="form-check-input" type="checkbox" id="compress-checkbox" checked>
+                <label class="form-check-label ms-2 font-weight-bold" for="compress-checkbox">Compress before upload</label>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -132,8 +138,10 @@
         `;
         uploadList.insertBefore(row, uploadList.firstChild);
 
+        const isCompressEnabled = document.getElementById('compress-checkbox')?.checked;
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('compress', isCompressEnabled ? 'true' : 'false');
 
         const xhr = new XMLHttpRequest();
         const progressBar = row.querySelector('.progress-bar');
@@ -152,7 +160,12 @@
             if (e.lengthComputable) {
                 const percent = (e.loaded / e.total) * 100;
                 progressBar.style.width = percent + '%';
-                statusBadge.textContent = Math.round(percent) + '%';
+                if (percent >= 100) {
+                    statusBadge.textContent = isCompressEnabled ? 'Compressing' : 'Processing';
+                    statusBadge.className = 'badge bg-warning text-dark status-badge';
+                } else {
+                    statusBadge.textContent = Math.round(percent) + '%';
+                }
             }
         };
 

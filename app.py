@@ -31,7 +31,7 @@ GLOBAL_THUMB_DIR = os.path.join(DATA_DIR, 'Thumbnail')
 MEDIA_PAGE_SIZE = 30
 
 # Auth Configuration
-# os.environ["ADMIN_PASSWORD"] = "test"
+os.environ["ADMIN_PASSWORD"] = "test"
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
@@ -65,6 +65,44 @@ def admin_required_api(f):
             return jsonify({'error': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated_function
+
+def check_redirect_org(data, org_id):
+    if org_id not in data.get('organizations', {}):
+        for cid, o in data.get('organizations', {}).items():
+            if org_id in o.get('previous_ids', []):
+                return cid
+    return None
+
+def check_redirect_event(data, event_id):
+    if event_id not in data.get('events', {}):
+        for cid, ev in data.get('events', {}).items():
+            if event_id in ev.get('previous_ids', []):
+                return cid
+    return None
+
+@app.before_request
+def handle_legacy_ids():
+    if request.view_args and request.endpoint and request.method == 'GET':
+        data = None
+        if 'org_id' in request.view_args:
+            org_id = request.view_args['org_id']
+            data = load_events()
+            new_id = check_redirect_org(data, org_id)
+            if new_id:
+                args = request.view_args.copy()
+                args.update(request.args)
+                args['org_id'] = new_id
+                return redirect(url_for(request.endpoint, **args), code=301)
+                
+        if 'event_id' in request.view_args:
+            event_id = request.view_args['event_id']
+            if data is None: data = load_events()
+            new_id = check_redirect_event(data, event_id)
+            if new_id:
+                args = request.view_args.copy()
+                args.update(request.args)
+                args['event_id'] = new_id
+                return redirect(url_for(request.endpoint, **args), code=301)
 
 def get_event_dirs(ev):
     event_folder = os.path.join(DATA_DIR, ev.get('folder', ''))
@@ -246,8 +284,12 @@ def resolve_id():
     organizations = data.get('organizations', {})
     
     if len(id_val) == 4 and id_val.isdigit():
+        new_id = check_redirect_org(data, id_val)
+        if new_id: id_val = new_id
         return redirect(url_for('org_page', org_id=id_val))
     elif len(id_val) == 6 and id_val.isdigit():
+        new_id = check_redirect_event(data, id_val)
+        if new_id: id_val = new_id
         ev = data.get('events', {}).get(id_val)
         if ev:
             return redirect(url_for('event_page', event_id=id_val))
@@ -341,10 +383,31 @@ def api_update_organization(org_id):
     elif 'password' in org:
         del org['password']
         
+    custom_id = request.form.get('custom_id', '').strip()
+    if custom_id and custom_id != org_id:
+        if not custom_id.isdigit() or len(custom_id) != 4:
+            return jsonify({'error': 'Organization ID must be exactly 4 numeric digits'}), 400
+        if custom_id in data.get('organizations', {}):
+            return jsonify({'error': 'Organization ID already exists'}), 400
+            
+        if 'previous_ids' not in org:
+            org['previous_ids'] = []
+        org['previous_ids'].append(org_id)
+        
+        data['organizations'][custom_id] = data['organizations'].pop(org_id)
+        
+        for e_id, e_data in data.get('events', {}).items():
+            if e_data.get('org_id') == org_id:
+                e_data['org_id'] = custom_id
+                
+        new_org_id = custom_id
+    else:
+        new_org_id = org_id
+        
     if not save_events(data):
         return jsonify({'error': 'Failed to save organization'}), 500
         
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'org_id': new_org_id})
 
 @app.route('/api/organizations/<org_id:org_id>/delete', methods=['POST'])
 @admin_required_api
@@ -460,20 +523,64 @@ def api_upload(event_id):
         return jsonify({'error': 'No selected file'}), 400
         
     filename = secure_filename(file.filename)
-    event_folder, media_dir, thumb_dir = get_event_dirs(ev)
+    compress = request.form.get('compress') == 'true'
     
+    event_folder, media_dir, thumb_dir = get_event_dirs(ev)
     os.makedirs(media_dir, exist_ok=True)
     os.makedirs(thumb_dir, exist_ok=True)
     
-    media_path = os.path.join(media_dir, filename)
-    file.save(media_path)
+    original_stem = os.path.splitext(filename)[0]
+    ext = os.path.splitext(filename)[1].lower()
+    final_media_path = os.path.join(media_dir, filename)
+    final_filename = filename
     
-    thumb_fname = filename + '.webp'
+    if compress:
+        import uuid
+        from utils import process_image_compress, process_video_compress
+        tmp_uuid = uuid.uuid4().hex
+        temp_input = os.path.join(media_dir, f"{filename}.in_{tmp_uuid}.tmp")
+        
+        if ext in IMAGE_EXTS:
+            temp_output = os.path.join(media_dir, f"{original_stem}.tmp_{tmp_uuid}.jpg")
+            file.save(temp_input)
+            if process_image_compress(temp_input, temp_output):
+                final_filename = original_stem + ".jpg"
+                final_media_path = os.path.join(media_dir, final_filename)
+                os.rename(temp_output, final_media_path)
+            else:
+                os.rename(temp_input, final_media_path)
+            if os.path.exists(temp_input):
+                try: os.remove(temp_input)
+                except: pass
+            if os.path.exists(temp_output):
+                try: os.remove(temp_output)
+                except: pass
+        elif ext in VIDEO_EXTS:
+            temp_output = os.path.join(media_dir, f"{original_stem}.tmp_{tmp_uuid}.mp4")
+            file.save(temp_input)
+            if process_video_compress(temp_input, temp_output):
+                final_filename = original_stem + ".mp4"
+                final_media_path = os.path.join(media_dir, final_filename)
+                os.rename(temp_output, final_media_path)
+            else:
+                os.rename(temp_input, final_media_path)
+            if os.path.exists(temp_input):
+                try: os.remove(temp_input)
+                except: pass
+            if os.path.exists(temp_output):
+                try: os.remove(temp_output)
+                except: pass
+        else:
+            file.save(final_media_path)
+    else:
+        file.save(final_media_path)
+    
+    thumb_fname = final_filename + '.webp'
     thumb_path = os.path.join(thumb_dir, thumb_fname)
-    generate_thumb_for_any(media_path, thumb_path)
+    generate_thumb_for_any(final_media_path, thumb_path)
     
     thumb_url = url_for('thumb_file', event_id=event_id, filename=thumb_fname)
-    return jsonify({'success': True, 'filename': filename, 'thumb_url': thumb_url})
+    return jsonify({'success': True, 'filename': final_filename, 'thumb_url': thumb_url})
 
 @app.route('/api/<event_id:event_id>/delete', methods=['POST'])
 @admin_required_api
@@ -518,7 +625,15 @@ def api_create_event():
     if org_id not in data.get('organizations', {}):
         return jsonify({'error': 'Organization not found'}), 400
         
-    event_id = generate_unique_id(6, data.get('events', {}).keys())
+    custom_id = request.form.get('custom_id', '').strip()
+    if custom_id:
+        if not custom_id.isdigit() or len(custom_id) != 6:
+            return jsonify({'error': 'Event ID must be exactly 6 numeric digits'}), 400
+        if custom_id in data.get('events', {}):
+            return jsonify({'error': 'Event ID already exists'}), 400
+        event_id = custom_id
+    else:
+        event_id = generate_unique_id(6, data.get('events', {}).keys())
     folder = event_id
         
     event_folder = os.path.join(DATA_DIR, folder)
@@ -583,6 +698,22 @@ def api_update_event(event_id):
     elif 'password' in ev:
         del ev['password']
         
+    custom_id = request.form.get('custom_id', '').strip()
+    if custom_id and custom_id != event_id:
+        if not custom_id.isdigit() or len(custom_id) != 6:
+            return jsonify({'error': 'Event ID must be exactly 6 numeric digits'}), 400
+        if custom_id in data.get('events', {}):
+            return jsonify({'error': 'Event ID already exists'}), 400
+            
+        if 'previous_ids' not in ev:
+            ev['previous_ids'] = []
+        ev['previous_ids'].append(event_id)
+        
+        data['events'][custom_id] = data['events'].pop(event_id)
+        new_event_id = custom_id
+    else:
+        new_event_id = event_id
+        
     if not save_events(data):
         return jsonify({'error': 'Failed to save event'}), 500
         
@@ -600,7 +731,7 @@ def api_update_event(event_id):
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                     
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'event_id': new_event_id})
 
 @app.route('/api/events/<event_id:event_id>/delete', methods=['POST'])
 @admin_required_api
@@ -636,7 +767,16 @@ def api_create_organization():
         return jsonify({'error': 'Organization name required'}), 400
         
     data = load_events()
-    org_id = generate_unique_id(4, data.get('organizations', {}).keys())
+    custom_id = request.form.get('custom_id', '').strip()
+    
+    if custom_id:
+        if not custom_id.isdigit() or len(custom_id) != 4:
+            return jsonify({'error': 'Organization ID must be exactly 4 numeric digits'}), 400
+        if custom_id in data.get('organizations', {}):
+            return jsonify({'error': 'Organization ID already exists'}), 400
+        org_id = custom_id
+    else:
+        org_id = generate_unique_id(4, data.get('organizations', {}).keys())
         
     data['organizations'][org_id] = {
         'name': name,

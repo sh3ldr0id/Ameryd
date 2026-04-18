@@ -3,8 +3,8 @@ import cv2
 from PIL import Image, ImageOps
 
 THUMB_SIZE = (400, 400)
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm', '.mkv', '.3gp'}
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif'}
+VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm', '.mkv', '.3gp', '.m4v'}
 
 def generate_thumbnail(media_path, thumb_path, quality=80):
     try:
@@ -78,3 +78,67 @@ def get_media_dimensions(media_path):
             pass
             
     return (0, 0)
+
+import math
+
+def process_image_compress(input_path, output_path):
+    try:
+        from PIL import Image
+        with Image.open(input_path) as img:
+            width, height = img.size
+            pixels = width * height
+            max_pixels = 12500000
+            
+            if pixels > max_pixels:
+                scale = math.sqrt(max_pixels / pixels)
+                new_width = math.floor(width * scale)
+                new_height = math.floor(height * scale)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+            if img.mode in ("RGBA", "P", "LA"):
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode == "RGBA" or img.mode == "LA":
+                    background.paste(img, mask=img.split()[-1])
+                else:
+                    background = img.convert("RGB")
+                img = background
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+                
+            exif = img.info.get('exif')
+            icc = img.info.get('icc_profile')
+            dpi = img.info.get('dpi')
+            
+            save_kwargs = {"quality": 90}
+            if exif: save_kwargs["exif"] = exif
+            if icc: save_kwargs["icc_profile"] = icc
+            if dpi: save_kwargs["dpi"] = dpi
+            
+            img.save(output_path, "JPEG", **save_kwargs)
+            return True
+    except Exception as e:
+        print(f"Image compress failed: {e}")
+        return False
+
+def process_video_compress(input_path, output_path):
+    try:
+        import subprocess
+        cmd = [
+            "ffmpeg", "-y", "-i", input_path,
+            "-map_metadata", "0",
+            "-movflags", "use_metadata_tags",
+            "-vf", "scale=-2:1080",
+            "-c:v", "libx265",
+            "-preset", "medium",
+            "-crf", "26",
+            "-threads", "1",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            output_path
+        ]
+        # Run ffmpeg, timeout after a reasonable time or let it block
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except Exception as e:
+        print(f"Video compress failed: {e}")
+        return False
