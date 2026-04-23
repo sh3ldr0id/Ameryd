@@ -171,8 +171,8 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('viewMode', mode);
     }
 
-    // Init View Mode — default to 'dynamic' if nothing saved
-    const savedViewMode = localStorage.getItem('viewMode') || 'dynamic';
+    // Init View Mode — default to 'masonry' if nothing saved
+    const savedViewMode = localStorage.getItem('viewMode') || 'masonry';
     if (viewModeSelect) {
         viewModeSelect.value = savedViewMode;
         applyViewMode(savedViewMode);
@@ -237,11 +237,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Initialize Column Count
+    const savedColCount = localStorage.getItem('colCount') || '6';
     if (colCountSelect) {
+        colCountSelect.value = savedColCount;
+        updateColumnCount(savedColCount === 'auto' ? 'auto' : parseInt(savedColCount));
+
         colCountSelect.addEventListener('change', function () {
             const val = this.value;
+            localStorage.setItem('colCount', val);
             updateColumnCount(val === 'auto' ? 'auto' : parseInt(val));
         });
+    } else {
+        updateColumnCount(savedColCount === 'auto' ? 'auto' : parseInt(savedColCount));
     }
 
     if (sortSelect) {
